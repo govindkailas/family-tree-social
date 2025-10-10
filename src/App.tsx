@@ -14,6 +14,7 @@ function App() {
   const [family, setFamily] = useKV<Family | null>('family-tree', null)
   const [showAddMember, setShowAddMember] = useState(false)
   const [selectedMember, setSelectedMember] = useState<string | null>(null)
+  const [focusedMember, setFocusedMember] = useState<string | null>(null)
 
   const createFamily = () => {
     const newFamily: Family = {
@@ -87,6 +88,39 @@ function App() {
     return family.members[family.headMemberId]
   }
 
+  const getDescendants = (memberId: string): FamilyMember[] => {
+    if (!family || !family.members[memberId]) return []
+    
+    const descendants: FamilyMember[] = []
+    const member = family.members[memberId]
+    
+    // Add direct children
+    member.children.forEach(childId => {
+      if (family.members[childId]) {
+        descendants.push(family.members[childId])
+        // Recursively add their descendants
+        descendants.push(...getDescendants(childId))
+      }
+    })
+    
+    return descendants
+  }
+
+  const getDisplayedMembers = () => {
+    if (!family) return []
+    
+    if (focusedMember) {
+      // Show the focused member and all their descendants
+      const focused = family.members[focusedMember]
+      if (focused) {
+        return [focused, ...getDescendants(focusedMember)]
+      }
+    }
+    
+    // Show all members by default
+    return Object.values(family.members)
+  }
+
   if (!family) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -119,6 +153,7 @@ function App() {
 
   const headMember = getHeadMember()
   const familyMembers = getFamilyMembers()
+  const displayedMembers = getDisplayedMembers()
 
   return (
     <div className="min-h-screen bg-background">
@@ -131,28 +166,46 @@ function App() {
                 <h1 className="text-2xl font-bold text-primary">{family.name}</h1>
                 <p className="text-sm text-muted-foreground">
                   {familyMembers.length} family member{familyMembers.length !== 1 ? 's' : ''}
+                  {focusedMember && (
+                    <span className="ml-2 px-2 py-1 bg-primary/10 text-primary rounded text-xs">
+                      Viewing: {family.members[focusedMember]?.name}'s family
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
-            <Button 
-              onClick={() => setShowAddMember(true)}
-              className="gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Member
-            </Button>
+            <div className="flex items-center gap-2">
+              {focusedMember && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setFocusedMember(null)}
+                  size="sm"
+                >
+                  Show All Members
+                </Button>
+              )}
+              <Button 
+                onClick={() => setShowAddMember(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Member
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        {headMember && (
+        {headMember && !focusedMember && (
           <div className="text-center mb-8">
             <h2 className="text-xl font-semibold text-foreground mb-4">Family Head</h2>
             <FamilyMemberCard 
               member={headMember}
               onEdit={() => setSelectedMember(headMember.id)}
+              onSelect={() => setFocusedMember(headMember.id)}
               isHead={true}
+              descendantCount={getDescendants(headMember.id).length}
             />
           </div>
         )}
@@ -162,16 +215,23 @@ function App() {
           onEditMember={(memberId) => setSelectedMember(memberId)}
         />
 
-        {familyMembers.length > 1 && (
+        {displayedMembers.length > 0 && (
           <div>
-            <h2 className="text-xl font-semibold text-foreground mb-4">All Family Members</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">
+              {focusedMember 
+                ? `${family.members[focusedMember]?.name}'s Family` 
+                : 'All Family Members'
+              }
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {familyMembers.map((member) => (
+              {displayedMembers.map((member) => (
                 <FamilyMemberCard
                   key={member.id}
                   member={member}
                   onEdit={() => setSelectedMember(member.id)}
+                  onSelect={() => setFocusedMember(member.id)}
                   isHead={member.id === family.headMemberId}
+                  descendantCount={getDescendants(member.id).length}
                 />
               ))}
             </div>

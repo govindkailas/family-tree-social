@@ -2,16 +2,18 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Pencil, Crown, ArrowSquareOut } from '@phosphor-icons/react'
+import { Pencil, Crown, ArrowSquareOut, Eye } from '@phosphor-icons/react'
 import { FamilyMember, SOCIAL_PLATFORMS } from '@/lib/types'
 
 interface FamilyMemberCardProps {
   member: FamilyMember
   onEdit: () => void
+  onSelect?: () => void
   isHead?: boolean
+  descendantCount?: number
 }
 
-export function FamilyMemberCard({ member, onEdit, isHead = false }: FamilyMemberCardProps) {
+export function FamilyMemberCard({ member, onEdit, onSelect, isHead = false, descendantCount = 0 }: FamilyMemberCardProps) {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -52,14 +54,35 @@ export function FamilyMemberCard({ member, onEdit, isHead = false }: FamilyMembe
               </Badge>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={onEdit}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {onSelect && descendantCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelect()
+                }}
+                className="text-muted-foreground hover:text-foreground"
+                title={`View ${descendantCount} descendant${descendantCount !== 1 ? 's' : ''}`}
+              >
+                <Eye className="w-4 h-4" />
+                <span className="text-xs ml-1">{descendantCount}</span>
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit()
+              }}
+              className="text-muted-foreground hover:text-foreground"
+              title="Edit member"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
