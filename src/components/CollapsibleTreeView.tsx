@@ -94,6 +94,9 @@ export function CollapsibleTreeView({ family, onEditMember, onSelectMember }: Co
     root.x0 = height / 2
     root.y0 = 0
 
+    // Initialize counter for unique node IDs
+    let i = 0
+
     // Collapse after the first level
     if (root.children) {
       root.children.forEach(collapse)
@@ -322,8 +325,6 @@ export function CollapsibleTreeView({ family, onEditMember, onSelectMember }: Co
                 ${(s.y + d.y) / 2} ${d.x},
                 ${d.y} ${d.x}`
     }
-
-    let i = 0
 
   }, [family, onEditMember, onSelectMember, dimensions])
 
