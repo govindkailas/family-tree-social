@@ -88,9 +88,10 @@ Subtle and meaningful animations that guide family connections and celebrate rel
   - Badges for relationship labels (Parent, Child, Spouse, etc.)
 
 - **Customizations**: 
-  - Custom tree visualization component using SVG connections between family members
+  - D3.js-powered tidy tree visualization with SVG rendering for scalable family hierarchy
+  - Interactive node-based family member cards with click-to-edit functionality
   - Social platform icon component library with brand-appropriate styling
-  - Relationship connector lines with responsive positioning
+  - Relationship connector lines with responsive positioning using D3 link generators
 
 - **States**: 
   - Family member cards: default, hover (lift shadow), selected (border highlight), editing (form overlay)
@@ -109,7 +110,7 @@ Subtle and meaningful animations that guide family connections and celebrate rel
   - 6-unit (24px) margins around major sections
 
 - **Mobile**: 
-  - Tree view switches to vertical card list on mobile
-  - Social profile icons stack horizontally under member names
-  - Touch-friendly 44px minimum touch targets for all interactive elements
-  - Collapsible sections to manage screen real estate on smaller devices
+  - D3 tree view remains interactive on mobile with touch support and scroll/pan capabilities
+  - Social profile icons remain visible as small numbered badges within tree nodes
+  - Touch-friendly tree navigation with zoom and pan gestures
+  - Responsive SVG scaling maintains tree readability across all screen sizes

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Users, Heart } from '@phosphor-icons/react'
 import { FamilyMemberCard } from '@/components/FamilyMemberCard'
 import { AddMemberDialog } from '@/components/AddMemberDialog'
-import { FamilyTreeView } from '@/components/FamilyTreeView'
+import { D3TreeView } from '@/components/D3TreeView'
 import { Family, FamilyMember } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -157,7 +157,7 @@ function App() {
           </div>
         )}
 
-        <FamilyTreeView 
+        <D3TreeView 
           family={family}
           onEditMember={(memberId) => setSelectedMember(memberId)}
         />
