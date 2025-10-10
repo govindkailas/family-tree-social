@@ -172,14 +172,14 @@ export function AddMemberDialog({
               <div className="space-y-2">
                 <Label htmlFor="parent">Parent/Guardian</Label>
                 <Select 
-                  value={formData.parentId} 
-                  onValueChange={(value) => setFormData({ ...formData, parentId: value })}
+                  value={formData.parentId || "none"} 
+                  onValueChange={(value) => setFormData({ ...formData, parentId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select parent" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {potentialParents.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.name}
