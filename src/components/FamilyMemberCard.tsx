@@ -2,18 +2,29 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Pencil, Crown, ArrowSquareOut, Eye } from '@phosphor-icons/react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Pencil, Crown, ArrowSquareOut, Eye, DotsThree, Plus, Trash, Users } from '@phosphor-icons/react'
 import { FamilyMember, SOCIAL_PLATFORMS } from '@/lib/types'
 
 interface FamilyMemberCardProps {
   member: FamilyMember
   onEdit: () => void
   onSelect?: () => void
+  onDelete?: () => void
+  onAddChild?: () => void
   isHead?: boolean
   descendantCount?: number
 }
 
-export function FamilyMemberCard({ member, onEdit, onSelect, isHead = false, descendantCount = 0 }: FamilyMemberCardProps) {
+export function FamilyMemberCard({ 
+  member, 
+  onEdit, 
+  onSelect, 
+  onDelete,
+  onAddChild,
+  isHead = false, 
+  descendantCount = 0 
+}: FamilyMemberCardProps) {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -31,7 +42,10 @@ export function FamilyMemberCard({ member, onEdit, onSelect, isHead = false, des
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow duration-200 relative">
+    <Card 
+      className="hover:shadow-md transition-shadow duration-200 relative cursor-pointer"
+      onClick={() => onSelect?.()}
+    >
       {isHead && (
         <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground p-1 rounded-full">
           <Crown className="w-4 h-4" />
@@ -55,33 +69,54 @@ export function FamilyMemberCard({ member, onEdit, onSelect, isHead = false, des
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {onSelect && descendantCount > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSelect()
-                }}
-                className="text-muted-foreground hover:text-foreground"
-                title={`View ${descendantCount} descendant${descendantCount !== 1 ? 's' : ''}`}
-              >
-                <Eye className="w-4 h-4" />
-                <span className="text-xs ml-1">{descendantCount}</span>
-              </Button>
+            {descendantCount > 0 && (
+              <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                <Users className="w-4 h-4" />
+                <span>{descendantCount}</span>
+              </div>
             )}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit()
-              }}
-              className="text-muted-foreground hover:text-foreground"
-              title="Edit member"
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <DotsThree className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit()
+                }}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit Member
+                </DropdownMenuItem>
+                {onAddChild && (
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation()
+                    onAddChild()
+                  }}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Child
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {onDelete && !isHead && (
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete()
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash className="w-4 h-4 mr-2" />
+                    Delete Member
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardHeader>
@@ -140,7 +175,10 @@ export function FamilyMemberCard({ member, onEdit, onSelect, isHead = false, des
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={onEdit}
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit()
+              }}
               className="text-xs text-muted-foreground"
             >
               Add Social Profiles

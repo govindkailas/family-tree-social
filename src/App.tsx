@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Plus, Users, Heart } from '@phosphor-icons/react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Plus, Users, Heart, Trash } from '@phosphor-icons/react'
 import { FamilyMemberCard } from '@/components/FamilyMemberCard'
 import { AddMemberDialog } from '@/components/AddMemberDialog'
-import { D3TreeView } from '@/components/D3TreeView'
+import { CollapsibleTreeView } from '@/components/CollapsibleTreeView'
 import { Family, FamilyMember } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -15,6 +15,8 @@ function App() {
   const [showAddMember, setShowAddMember] = useState(false)
   const [selectedMember, setSelectedMember] = useState<string | null>(null)
   const [focusedMember, setFocusedMember] = useState<string | null>(null)
+  const [addChildToMember, setAddChildToMember] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
   const createFamily = () => {
     const newFamily: Family = {
@@ -58,6 +60,38 @@ function App() {
 
     setFamily(updatedFamily)
     toast.success(`Added ${newMember.name} to the family tree`)
+  }
+
+  const deleteFamilyMember = (memberId: string) => {
+    if (!family || !family.members[memberId] || memberId === family.headMemberId) {
+      toast.error('Cannot delete this member')
+      return
+    }
+
+    const memberToDelete = family.members[memberId]
+    
+    // Check if member has children
+    if (memberToDelete.children.length > 0) {
+      toast.error('Cannot delete a member with children. Please reassign or delete their children first.')
+      return
+    }
+
+    // Remove from parent's children array
+    if (memberToDelete.parentId && family.members[memberToDelete.parentId]) {
+      const parent = family.members[memberToDelete.parentId]
+      parent.children = parent.children.filter(childId => childId !== memberId)
+    }
+
+    // Remove the member
+    const { [memberId]: deleted, ...remainingMembers } = family.members
+    
+    setFamily({
+      ...family,
+      members: remainingMembers
+    })
+
+    toast.success(`Removed ${memberToDelete.name} from the family tree`)
+    setShowDeleteConfirm(null)
   }
 
   const updateFamilyMember = (memberId: string, updates: Partial<FamilyMember>) => {
@@ -204,15 +238,17 @@ function App() {
               member={headMember}
               onEdit={() => setSelectedMember(headMember.id)}
               onSelect={() => setFocusedMember(headMember.id)}
+              onAddChild={() => setAddChildToMember(headMember.id)}
               isHead={true}
               descendantCount={getDescendants(headMember.id).length}
             />
           </div>
         )}
 
-        <D3TreeView 
+        <CollapsibleTreeView 
           family={family}
           onEditMember={(memberId) => setSelectedMember(memberId)}
+          onSelectMember={(memberId) => setFocusedMember(memberId)}
         />
 
         {displayedMembers.length > 0 && (
@@ -230,6 +266,8 @@ function App() {
                   member={member}
                   onEdit={() => setSelectedMember(member.id)}
                   onSelect={() => setFocusedMember(member.id)}
+                  onDelete={member.id !== family.headMemberId ? () => setShowDeleteConfirm(member.id) : undefined}
+                  onAddChild={() => setAddChildToMember(member.id)}
                   isHead={member.id === family.headMemberId}
                   descendantCount={getDescendants(member.id).length}
                 />
@@ -254,6 +292,49 @@ function App() {
           editingMember={family.members[selectedMember]}
           existingMembers={familyMembers}
         />
+      )}
+
+      {addChildToMember && (
+        <AddMemberDialog
+          open={!!addChildToMember}
+          onOpenChange={() => setAddChildToMember(null)}
+          onAddMember={(data) => {
+            addFamilyMember({ ...data, parentId: addChildToMember })
+            setAddChildToMember(null)
+          }}
+          existingMembers={familyMembers}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <Dialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Family Member</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p>
+                Are you sure you want to delete <strong>{family?.members[showDeleteConfirm]?.name}</strong> from the family tree?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(null)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => deleteFamilyMember(showDeleteConfirm)}
+                  className="gap-2"
+                >
+                  <Trash className="w-4 h-4" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )
