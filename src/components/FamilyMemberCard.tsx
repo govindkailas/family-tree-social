@@ -48,7 +48,7 @@ export function FamilyMemberCard({
     >
       {isHead && (
         <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground p-1 rounded-full">
-          <Crown className="w-4 h-4" />
+          <Crown size={16} />
         </div>
       )}
       
@@ -71,7 +71,7 @@ export function FamilyMemberCard({
           <div className="flex items-center gap-1">
             {descendantCount > 0 && (
               <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                <Users className="w-4 h-4" />
+                <Users size={16} />
                 <span>{descendantCount}</span>
               </div>
             )}
@@ -82,7 +82,7 @@ export function FamilyMemberCard({
                   size="sm" 
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  <DotsThree className="w-4 h-4" />
+                  <DotsThree size={16} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
