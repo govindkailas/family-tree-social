@@ -38,9 +38,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### 4. Run
-bash
+```bash
 npm run dev
 Open http://localhost:3000
+```
 
 ### Features
 - 🔐 Magic‑link login (email)
