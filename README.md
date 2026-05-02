@@ -68,4 +68,3 @@ Deploy!
 
 ### License
 MIT
-EOF
