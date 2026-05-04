@@ -16,7 +16,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const familyName = Array.isArray(rawFamilies)
     ? (rawFamilies as { name: string }[])[0]?.name ?? null
     : (rawFamilies as unknown as { name: string } | null)?.name ?? null
-  const familyId   = membership?.family_id ?? null
+  const familyId = membership?.family_id ?? null
+  const isOwner  = membership?.role === 'owner'
+
+  // Count pending join requests (owners only)
+  let pendingCount = 0
+  if (isOwner && familyId) {
+    const { count } = await supabase
+      .from('join_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('family_id', familyId)
+      .eq('status', 'pending')
+    pendingCount = count ?? 0
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -45,6 +57,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
               >
                 Invite
               </Link>
+              {isOwner && (
+                <Link
+                  href="/dashboard/pending"
+                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  Requests
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                      {pendingCount}
+                    </span>
+                  )}
+                </Link>
+              )}
               {familyId && user && (
                 <SendInviteButton familyId={familyId} userId={user.id} />
               )}
