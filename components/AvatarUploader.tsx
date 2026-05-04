@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState, useTransition } from 'react'
+import { useRef, useState, useTransition, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/avatar'
 
@@ -57,13 +57,52 @@ function CropModal({
   onCancel: () => void
 }) {
   const [cs, setCs] = useState(initial)
-  const dragging  = useRef(false)
-  const lastMouse = useRef({ x: 0, y: 0 })
-  const lastTouch = useRef({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dragging     = useRef(false)
+  const lastMouse    = useRef({ x: 0, y: 0 })
+  const lastTouch    = useRef({ x: 0, y: 0 })
+  // stable refs so event handlers don't go stale
+  const csRef = useRef(cs)
+  csRef.current = cs
 
-  // ── mouse ──
+  // ── non-passive wheel + touchmove (must be DOM listeners, not React synthetic) ──
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault()
+      setCs(p => {
+        const min  = minScale(p.natW, p.natH)
+        const next = Math.min(6, Math.max(min, p.scale * (1 - e.deltaY * 0.001)))
+        const { ox, oy } = clampOffset(p.offsetX, p.offsetY, p.natW, p.natH, next)
+        return { ...p, scale: next, offsetX: ox, offsetY: oy }
+      })
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      e.preventDefault()   // stop page scroll while dragging crop
+      if (!dragging.current || e.touches.length !== 1) return
+      const dx = e.touches[0].clientX - lastTouch.current.x
+      const dy = e.touches[0].clientY - lastTouch.current.y
+      lastTouch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      setCs(p => {
+        const { ox, oy } = clampOffset(p.offsetX + dx, p.offsetY + dy, p.natW, p.natH, p.scale)
+        return { ...p, offsetX: ox, offsetY: oy }
+      })
+    }
+
+    el.addEventListener('wheel',      handleWheel,      { passive: false })
+    el.addEventListener('touchmove',  handleTouchMove,  { passive: false })
+    return () => {
+      el.removeEventListener('wheel',     handleWheel)
+      el.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])  // runs once — handlers read state via setCs updater fn or refs
+
+  // ── mouse drag ──
   const onMouseDown = (e: React.MouseEvent) => {
-    dragging.current = true
+    dragging.current  = true
     lastMouse.current = { x: e.clientX, y: e.clientY }
     e.preventDefault()
   }
@@ -79,71 +118,51 @@ function CropModal({
   }
   const stopDrag = () => { dragging.current = false }
 
-  // ── touch ──
+  // ── touch drag start/end (move handled by DOM listener above) ──
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length !== 1) return
-    dragging.current = true
+    dragging.current  = true
     lastTouch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-  }
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!dragging.current || e.touches.length !== 1) return
-    const dx = e.touches[0].clientX - lastTouch.current.x
-    const dy = e.touches[0].clientY - lastTouch.current.y
-    lastTouch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-    setCs(p => {
-      const { ox, oy } = clampOffset(p.offsetX + dx, p.offsetY + dy, p.natW, p.natH, p.scale)
-      return { ...p, offsetX: ox, offsetY: oy }
-    })
-    e.preventDefault()
   }
   const stopTouch = () => { dragging.current = false }
 
-  // ── scroll to zoom ──
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    setCs(p => {
-      const min  = minScale(p.natW, p.natH)
-      const next = Math.min(6, Math.max(min, p.scale * (1 - e.deltaY * 0.001)))
-      const { ox, oy } = clampOffset(p.offsetX, p.offsetY, p.natW, p.natH, next)
-      return { ...p, scale: next, offsetX: ox, offsetY: oy }
-    })
-  }
-
-  const imgLeft = VIEWPORT / 2 - (cs.natW * cs.scale) / 2 + cs.offsetX
-  const imgTop  = VIEWPORT / 2 - (cs.natH * cs.scale) / 2 + cs.offsetY
+  const baseScale = minScale(cs.natW, cs.natH)
+  const imgLeft   = VIEWPORT / 2 - (cs.natW * cs.scale) / 2 + cs.offsetX
+  const imgTop    = VIEWPORT / 2 - (cs.natH * cs.scale) / 2 + cs.offsetY
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 w-[340px] mx-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4 w-[min(340px,calc(100vw-2rem))]">
         <div className="text-center">
           <h2 className="text-sm font-semibold text-gray-800">Crop photo</h2>
-          <p className="text-[11px] text-gray-400 mt-0.5">Drag to reposition · scroll to zoom</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Drag to reposition · scroll or pinch to zoom</p>
         </div>
 
         {/* ── Crop viewport ── */}
         <div
+          ref={containerRef}
           style={{
-            width:        VIEWPORT,
-            height:       VIEWPORT,
-            borderRadius: '50%',
-            overflow:     'hidden',
-            position:     'relative',
-            cursor:       'move',
-            userSelect:   'none',
-            flexShrink:   0,
-            boxShadow:    '0 0 0 5px #f59e0b55, 0 0 0 9px #fef3c7, 0 4px 24px rgba(0,0,0,0.15)',
+            width:       VIEWPORT,
+            height:      VIEWPORT,
+            borderRadius:'50%',
+            overflow:    'hidden',
+            position:    'relative',
+            cursor:      'move',
+            userSelect:  'none',
+            touchAction: 'none',   // prevent browser scroll/pinch taking over
+            flexShrink:  0,
+            boxShadow:   '0 0 0 5px #f59e0b55, 0 0 0 9px #fef3c7, 0 4px 24px rgba(0,0,0,0.15)',
           }}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={stopDrag}
           onMouseLeave={stopDrag}
-          onWheel={onWheel}
           onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
           onTouchEnd={stopTouch}
+          onTouchCancel={stopTouch}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -151,12 +170,12 @@ function CropModal({
             alt="crop preview"
             draggable={false}
             style={{
-              position: 'absolute',
-              left:     imgLeft,
-              top:      imgTop,
-              width:    cs.natW * cs.scale,
-              height:   cs.natH * cs.scale,
-              userSelect: 'none',
+              position:      'absolute',
+              left:          imgLeft,
+              top:           imgTop,
+              width:         cs.natW * cs.scale,
+              height:        cs.natH * cs.scale,
+              userSelect:    'none',
               pointerEvents: 'none',
             }}
           />
@@ -167,9 +186,9 @@ function CropModal({
           <span className="text-gray-300 text-sm select-none">🔍</span>
           <input
             type="range"
-            min={minScale(cs.natW, cs.natH) * 100}
-            max={minScale(cs.natW, cs.natH) * 600}
-            value={cs.scale * 100}
+            min={Math.round(baseScale * 100)}
+            max={Math.round(baseScale * 600)}
+            value={Math.round(cs.scale * 100)}
             step={1}
             className="flex-1 accent-amber-500"
             onChange={(e) => {
