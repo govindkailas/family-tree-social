@@ -4,7 +4,7 @@ import SendInviteButton from '@/components/SendInviteButton'
 import Link from 'next/link'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: membership } = await supabase
     .from('family_members')
@@ -12,7 +12,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('user_id', user?.id)
     .single()
 
-  const familyName = (membership?.families as { name: string } | null)?.name
+  const rawFamilies = membership?.families
+  const familyName = Array.isArray(rawFamilies)
+    ? (rawFamilies as { name: string }[])[0]?.name ?? null
+    : (rawFamilies as unknown as { name: string } | null)?.name ?? null
   const familyId   = membership?.family_id ?? null
 
   return (

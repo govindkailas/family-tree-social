@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import LoginForm from './LoginForm'
 
 export default async function LoginPage() {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   // Uses a security-definer RPC so the family name is readable without auth.
   // Run this once in the Supabase SQL editor if you haven't already:
