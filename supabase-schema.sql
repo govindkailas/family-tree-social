@@ -45,7 +45,14 @@ create table relationships (
   created_at timestamptz default now()
 );
 
--- Helper function
+-- Helper functions
+
+-- Returns the name of the first family without requiring auth (used on the login page).
+create or replace function get_public_family_name()
+returns text as $$
+  select name from families order by created_at limit 1;
+$$ language sql security definer;
+
 create or replace function is_family_member(family_id uuid)
 returns boolean as $$
   select exists (

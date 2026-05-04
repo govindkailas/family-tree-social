@@ -1,97 +1,93 @@
 'use client'
-import { useMemo } from 'react'
-import ReactFlow, {
-  Node,
-  Edge,
-  Background,
-  Controls,
-  useNodesState,
-  useEdgesState,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
-import dagre from 'dagre'
-import PersonNode from './PersonNode'
+import { useState, useEffect } from 'react'
+import { LayoutList, Network } from 'lucide-react'
+import FamilyTreeList from './FamilyTreeList'
+import FamilyTreeD3 from './FamilyTreeD3'
 
-const nodeTypes = { person: PersonNode }
+// ── view detection ─────────────────────────────────────────────────────────
 
-function buildGraph(people: any[], relationships: any[]) {
-  const nodes: Node[] = people.map((p) => ({
-    id: p.id,
-    type: 'person',
-    data: {
-      label: `${p.first_name} ${p.last_name ?? ''}`,
-      ...p,
-    },
-    position: { x: 0, y: 0 },
-  }))
+/** Returns true on mobile widths, null during SSR / first paint. */
+function useIsMobile(breakpoint = 768): boolean | null {
+  const [isMobile, setIsMobile] = useState<boolean | null>(null)
 
-  const edges: Edge[] = relationships
-    .filter((r) => r.type === 'parent_child')
-    .map((r) => ({
-      id: r.id,
-      source: r.from_person_id,
-      target: r.to_person_id,
-      type: 'smoothstep',
-      label: 'child',
-    }))
-    .concat(
-      relationships
-        .filter((r) => r.type === 'spouse')
-        .map((r) => ({
-          id: r.id,
-          source: r.from_person_id,
-          target: r.to_person_id,
-          type: 'smoothstep',
-          style: { strokeDasharray: '5,5' },
-          label: 'spouse',
-        }))
-    )
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [breakpoint])
 
-  const g = new dagre.graphlib.Graph()
-  g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'TB', ranksep: 100, nodesep: 80 })
-
-  nodes.forEach((node) => g.setNode(node.id, { width: 160, height: 60 }))
-  edges.forEach((edge) => g.setEdge(edge.source, edge.target))
-
-  dagre.layout(g)
-
-  return {
-    nodes: nodes.map((node) => {
-      const dagreNode = g.node(node.id)
-      return {
-        ...node,
-        position: {
-          x: dagreNode.x - 80,
-          y: dagreNode.y - 30,
-        },
-      }
-    }),
-    edges,
-  }
+  return isMobile
 }
 
-export default function FamilyTree({ people, relationships }: { people: any[]; relationships: any[] }) {
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildGraph(people, relationships),
-    [people, relationships]
-  )
+// ── FamilyTree (wrapper) ───────────────────────────────────────────────────
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+type View = 'list' | 'canvas'
+
+export default function FamilyTree({
+  people,
+  relationships,
+}: {
+  people: any[]
+  relationships: any[]
+}) {
+  const isMobile = useIsMobile()
+  // null = follow device; set explicitly when user clicks toggle
+  const [userView, setUserView] = useState<View | null>(null)
+
+  // Derived active view: user override > device default
+  // While isMobile is null (SSR / first frame) default to list
+  const autoView: View = isMobile === null ? 'list' : isMobile ? 'list' : 'canvas'
+  const activeView: View = userView ?? autoView
+
+  // Empty state (shared between both views)
+  if (people.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+        <span className="text-5xl">🌱</span>
+        <p className="text-sm font-medium">Your family tree is empty.</p>
+        <p className="text-xs">Add the first person to get started.</p>
+      </div>
+    )
+  }
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      nodeTypes={nodeTypes}
-      fitView
-      nodesDraggable={false}
-    >
-      <Background />
-      <Controls />
-    </ReactFlow>
+    <div className="relative h-full w-full">
+      {/* ── View toggle ──────────────────────────────────────────────────── */}
+      <div className="absolute top-3 right-3 z-10 flex bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        <button
+          onClick={() => setUserView('list')}
+          title="List view"
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+            activeView === 'list'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          <LayoutList size={13} />
+          <span className="hidden sm:inline">List</span>
+        </button>
+        <button
+          onClick={() => setUserView('canvas')}
+          title="Tree canvas"
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+            activeView === 'canvas'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          <Network size={13} />
+          <span className="hidden sm:inline">Tree</span>
+        </button>
+      </div>
+
+      {/* ── Active view ──────────────────────────────────────────────────── */}
+      {activeView === 'list' ? (
+        <FamilyTreeList people={people} relationships={relationships} />
+      ) : (
+        <FamilyTreeD3 people={people} relationships={relationships} />
+      )}
+    </div>
   )
 }

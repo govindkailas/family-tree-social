@@ -35,6 +35,8 @@ Copy the file .env.local and replace with your Supabase project URL and anon key
 ``` text
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+RESEND_API_KEY=rre_******
+RESEND_FROM_EMAIL=Family Tree <onboarding@resend.dev>
 ```
 
 ### 4. Run

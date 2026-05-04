@@ -1,50 +1,17 @@
-'use client'
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createServerClient } from '@/lib/supabase/server'
+import LoginForm from './LoginForm'
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const supabase = createClient()
+export default async function LoginPage() {
+  const supabase = createServerClient()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSent(true)
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) {
-      setSent(false)
-      alert(error.message)
-    }
-  }
+  // Uses a security-definer RPC so the family name is readable without auth.
+  // Run this once in the Supabase SQL editor if you haven't already:
+  //
+  //   create or replace function get_public_family_name()
+  //   returns text as $$
+  //     select name from families order by created_at limit 1;
+  //   $$ language sql security definer;
+  const { data: familyName } = await supabase.rpc('get_public_family_name')
 
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-2xl font-semibold mb-6">Family Tree Login</h1>
-      {sent ? (
-        <p className="text-green-600">Check your email for a magic link!</p>
-      ) : (
-        <form onSubmit={handleLogin} className="space-y-4 flex flex-col items-center">
-          <input
-            type="email"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="border border-gray-300 rounded-lg px-4 py-2 w-72"
-          />
-          <button
-            type="submit"
-            className="bg-gray-900 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition"
-          >
-            Send Magic Link
-          </button>
-        </form>
-      )}
-    </div>
-  )
+  return <LoginForm familyName={familyName ?? null} />
 }
