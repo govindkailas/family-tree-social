@@ -31,7 +31,8 @@ function getPalette(seed: string): [string, string] {
 
 // ── page ───────────────────────────────────────────────────────────────────
 
-export default async function PersonPage({ params }: { params: { id: string } }) {
+export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createServerClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -41,7 +42,7 @@ export default async function PersonPage({ params }: { params: { id: string } })
   const { data: person } = await supabase
     .from('people')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!person) {
@@ -64,14 +65,14 @@ export default async function PersonPage({ params }: { params: { id: string } })
       'id, type, from_person_id, to_person_id, from_person:people!from_person_id(id,first_name,last_name,nick_name), to_person:people!to_person_id(id,first_name,last_name,nick_name)'
     )
     .eq('family_id', person.family_id)
-    .or(`from_person_id.eq.${params.id},to_person_id.eq.${params.id}`)
+    .or(`from_person_id.eq.${id},to_person_id.eq.${id}`)
 
   // Fetch all other people in the family (for the relationship picker)
   const { data: allPeople } = await supabase
     .from('people')
     .select('id, first_name, last_name, nick_name')
     .eq('family_id', person.family_id)
-    .neq('id', params.id)
+    .neq('id', id)
     .order('first_name')
 
   const seed = `${person.first_name ?? ''}${person.last_name ?? ''}`
@@ -146,7 +147,7 @@ export default async function PersonPage({ params }: { params: { id: string } })
           Relationships
         </h2>
         <RelationshipsManager
-          personId={params.id}
+          personId={id}
           familyId={person.family_id}
           initialRelationships={(relationships ?? []) as any}
           allPeople={(allPeople ?? []) as any}
