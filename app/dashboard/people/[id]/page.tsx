@@ -58,6 +58,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     .single()
   const isOwner = membership?.role === 'owner'
 
+  // Person can edit their own profile (matched by email or user_id)
+  const isOwnProfile =
+    (person as any).user_id === user.id ||
+    (person.email != null && person.email === user.email)
+
+  const canEdit = isOwner || isOwnProfile
+
   // Fetch all relationships involving this person (with joined person data)
   const { data: relationships } = await supabase
     .from('relationships')
@@ -127,6 +134,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             )}
             <PersonDetailsEditor
               personId={person.id}
+              canEdit={canEdit}
               initialData={{
                 first_name: person.first_name,
                 last_name:  person.last_name  ?? null,
@@ -152,6 +160,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           initialRelationships={(relationships ?? []) as any}
           allPeople={(allPeople ?? []) as any}
           isOwner={isOwner ?? false}
+          canEdit={canEdit}
         />
       </section>
 

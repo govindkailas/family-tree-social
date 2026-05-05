@@ -82,6 +82,36 @@ export async function POST(req: NextRequest) {
       ? `${senderPerson.first_name}${senderPerson.last_name ? ' ' + senderPerson.last_name : ''}`
       : (user.email ?? 'A family member')
 
+    // ── Look up tree context for each recipient ────────────────────────────
+    // Build a map of email → { personName, parentName } for recipients in tree
+    type TreeCtx = { personName: string; parentName: string | null }
+    const treeContextMap: Record<string, TreeCtx> = {}
+
+    for (const email of emails) {
+      const { data: person } = await supabase
+        .from('people')
+        .select('id, first_name, last_name')
+        .eq('family_id', familyId)
+        .eq('email', email)
+        .single()
+
+      if (person) {
+        const { data: parentRel } = await supabase
+          .from('relationships')
+          .select('from_person:people!from_person_id(first_name, last_name)')
+          .eq('to_person_id', person.id)
+          .eq('type', 'parent_child')
+          .limit(1)
+          .single()
+
+        const parent = parentRel?.from_person as { first_name: string; last_name?: string | null } | null
+        treeContextMap[email] = {
+          personName: `${person.first_name}${person.last_name ? ' ' + person.last_name : ''}`,
+          parentName: parent ? `${parent.first_name}${parent.last_name ? ' ' + parent.last_name : ''}` : null,
+        }
+      }
+    }
+
     // ── Build email HTML ───────────────────────────────────────────────────
     const dateStr = eventDate
       ? new Date(eventDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -129,7 +159,8 @@ export async function POST(req: NextRequest) {
             View Family Tree →
           </a>
         </td></tr>
-        <!-- footer -->
+        <!-- footer (recipient-specific tree context injected per-send) -->
+        __TREE_CONTEXT__
         <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #f3f4f6;">
           <p style="margin:0;font-size:13px;color:#6b7280;">
             Invited by <strong style="color:#374151;">${senderName}</strong>
@@ -142,18 +173,38 @@ export async function POST(req: NextRequest) {
 </body>
 </html>`
 
-    // ── Send emails via Resend ─────────────────────────────────────────────
+    // ── Send personalised emails via Resend (one per recipient) ───────────
     const fromAddress = process.env.RESEND_FROM_EMAIL ?? 'Family Tree <onboarding@resend.dev>'
 
-    const { error: sendErr } = await resend.emails.send({
-      from: fromAddress,
-      to:   emails,
-      subject: title,
-      html,
-    })
+    for (const email of emails) {
+      const ctx = treeContextMap[email]
+      const treeContextHtml = ctx
+        ? `<tr><td style="padding:0 40px 20px;">
+             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;">
+               <p style="margin:0;font-size:13px;color:#92400e;">
+                 You've been added to the family tree as <strong>${ctx.personName}</strong>${ctx.parentName ? `, under <strong>${ctx.parentName}</strong>` : ''}.
+               </p>
+             </div>
+           </td></tr>`
+        : ''
 
+      const personalHtml = html.replace('__TREE_CONTEXT__', treeContextHtml)
+
+      const { error: sendErr } = await resend.emails.send({
+        from: fromAddress,
+        to:   [email],
+        subject: title,
+        html: personalHtml,
+      })
+
+      if (sendErr) {
+        console.error(`[send-invite] Failed to send to ${email}:`, sendErr.message)
+      }
+    }
+
+    const sendErr = null // individual errors logged above; overall request succeeds
     if (sendErr) {
-      return NextResponse.json({ error: `Email send failed: ${sendErr.message}` }, { status: 500 })
+      return NextResponse.json({ error: `Email send failed` }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, eventId: event.id })

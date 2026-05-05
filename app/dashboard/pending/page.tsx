@@ -11,6 +11,7 @@ async function approveRequest(formData: FormData) {
   const requestId = formData.get('requestId') as string
   const userId    = formData.get('userId')    as string
   const familyId  = formData.get('familyId')  as string
+  const email     = formData.get('email')     as string
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -22,6 +23,16 @@ async function approveRequest(formData: FormData) {
     family_id: familyId,
     role:      'member',
   })
+
+  // Link their people record to this auth user (match by email)
+  if (email) {
+    await supabase
+      .from('people')
+      .update({ user_id: userId })
+      .eq('family_id', familyId)
+      .eq('email', email)
+      .is('user_id', null) // don't overwrite an existing link
+  }
 
   // Mark request approved
   await supabase
@@ -70,8 +81,36 @@ export default async function PendingRequestsPage() {
     .eq('family_id', membership.family_id)
     .order('created_at', { ascending: false })
 
-  const pending  = requests?.filter(r => r.status === 'pending')  ?? []
-  const reviewed = requests?.filter(r => r.status !== 'pending')  ?? []
+  // For each pending request, look up if a people record + parent exists
+  type RequestWithContext = typeof requests extends (infer T)[] | null ? T & { parentName?: string | null } : never
+  const enriched: RequestWithContext[] = await Promise.all(
+    (requests ?? []).map(async (req) => {
+      const { data: person } = await supabase
+        .from('people')
+        .select('id, first_name, last_name')
+        .eq('family_id', membership.family_id)
+        .eq('email', req.email)
+        .single()
+
+      if (!person) return { ...req, parentName: null }
+
+      // Find parent relationship
+      const { data: parentRel } = await supabase
+        .from('relationships')
+        .select('from_person:people!from_person_id(first_name, last_name)')
+        .eq('to_person_id', person.id)
+        .eq('type', 'parent_child')
+        .limit(1)
+        .single()
+
+      const parent = (parentRel?.from_person as { first_name: string; last_name?: string | null } | null)
+      const parentName = parent ? `${parent.first_name}${parent.last_name ? ' ' + parent.last_name : ''}` : null
+      return { ...req, parentName }
+    })
+  )
+
+  const pending  = enriched.filter(r => r.status === 'pending')
+  const reviewed = enriched.filter(r => r.status !== 'pending')
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -98,6 +137,14 @@ export default async function PendingRequestsPage() {
               >
                 <div>
                   <p className="text-sm font-medium text-gray-900">{req.email}</p>
+                  {req.parentName && (
+                    <p className="text-xs text-amber-600 mt-0.5">
+                      Child of {req.parentName} in the tree
+                    </p>
+                  )}
+                  {!req.parentName && (
+                    <p className="text-xs text-gray-400 mt-0.5">Not yet linked to a tree record</p>
+                  )}
                   <p className="text-xs text-gray-400 mt-0.5">
                     {new Date(req.created_at).toLocaleDateString('en-US', {
                       year: 'numeric', month: 'short', day: 'numeric',
@@ -109,6 +156,7 @@ export default async function PendingRequestsPage() {
                     <input type="hidden" name="requestId" value={req.id} />
                     <input type="hidden" name="userId"    value={req.user_id} />
                     <input type="hidden" name="familyId"  value={membership.family_id} />
+                    <input type="hidden" name="email"     value={req.email} />
                     <button
                       type="submit"
                       className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium hover:bg-gray-700 transition-colors"

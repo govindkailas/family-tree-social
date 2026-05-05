@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   personId: string
+  canEdit?: boolean
   initialData: {
     first_name: string
     last_name: string | null
@@ -15,7 +16,7 @@ interface Props {
   }
 }
 
-export default function PersonDetailsEditor({ personId, initialData }: Props) {
+export default function PersonDetailsEditor({ personId, canEdit = false, initialData }: Props) {
   const supabase = createClient()
 
   const [editing, setEditing] = useState(false)
@@ -77,6 +78,7 @@ export default function PersonDetailsEditor({ personId, initialData }: Props) {
   }
 
   if (!editing) {
+    if (!canEdit) return null
     return (
       <button
         onClick={() => setEditing(true)}
