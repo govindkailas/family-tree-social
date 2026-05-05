@@ -70,10 +70,24 @@ export async function POST(req: NextRequest) {
       emails.map((email) => ({ event_id: event.id, email }))
     )
 
+    // ── Look up sender's name ──────────────────────────────────────────────
+    const { data: senderPerson } = await supabase
+      .from('people')
+      .select('first_name, last_name')
+      .eq('family_id', familyId)
+      .eq('email', user.email)
+      .single()
+
+    const senderName = senderPerson
+      ? `${senderPerson.first_name}${senderPerson.last_name ? ' ' + senderPerson.last_name : ''}`
+      : (user.email ?? 'A family member')
+
     // ── Build email HTML ───────────────────────────────────────────────────
     const dateStr = eventDate
       ? new Date(eventDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
       : null
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://kailas.family'
 
     const html = `
 <!DOCTYPE html>
@@ -109,9 +123,18 @@ export async function POST(req: NextRequest) {
             📎 ${attachmentName ?? 'View attachment'}
           </a>
         </td></tr>` : ''}
+        <!-- CTA -->
+        <tr><td style="padding:24px 40px 8px;">
+          <a href="${appUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;">
+            View Family Tree →
+          </a>
+        </td></tr>
         <!-- footer -->
         <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #f3f4f6;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;">You received this invite because you're a member of the family tree.</p>
+          <p style="margin:0;font-size:13px;color:#6b7280;">
+            Invited by <strong style="color:#374151;">${senderName}</strong>
+          </p>
+          <p style="margin:6px 0 0;font-size:12px;color:#9ca3af;">You received this because you're part of the Kailathuvalappil family tree.</p>
         </td></tr>
       </table>
     </td></tr>
