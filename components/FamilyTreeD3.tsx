@@ -136,7 +136,8 @@ function buildVisible(
 function layout(nodes: Omit<NodeDatum, 'x' | 'y'>[], edges: EdgeDatum[]): NodeDatum[] {
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'LR', ranksep: 110, nodesep: 24, marginx: 60, marginy: 60 })
+  // TB = top-to-bottom: tree grows downward, siblings spread horizontally
+  g.setGraph({ rankdir: 'TB', ranksep: 60, nodesep: 20, marginx: 40, marginy: 40 })
 
   nodes.forEach(n => g.setNode(n.id, { width: n.w, height: n.h }))
   edges.forEach(e => g.setEdge(e.source, e.target))
@@ -149,15 +150,15 @@ function layout(nodes: Omit<NodeDatum, 'x' | 'y'>[], edges: EdgeDatum[]): NodeDa
   })
 }
 
-// ── elbow path ─────────────────────────────────────────────────────────────
+// ── elbow path (TB: bottom-center → top-center) ────────────────────────────
 
 function elbowPath(source: NodeDatum, target: NodeDatum): string {
-  const sx = source.x + source.w          // right edge of source card
-  const sy = source.y + source.h / 2      // vertical center of source
-  const tx = target.x                     // left edge of target card
-  const ty = target.y + target.h / 2      // vertical center of target
-  const mx = sx + (tx - sx) / 2           // midpoint x
-  return `M${sx},${sy} H${mx} V${ty} H${tx}`
+  const sx = source.x + source.w / 2      // horizontal center of source card
+  const sy = source.y + source.h          // bottom edge of source card
+  const tx = target.x + target.w / 2      // horizontal center of target card
+  const ty = target.y                     // top edge of target card
+  const my = sy + (ty - sy) / 2          // midpoint y
+  return `M${sx},${sy} V${my} H${tx} V${ty}`
 }
 
 // ── PersonAvatar ───────────────────────────────────────────────────────────
@@ -296,17 +297,17 @@ function NodeCard({
         </>
       )}
 
-      {/* Expand / collapse button */}
+      {/* Expand / collapse button — sits at bottom-center for TB layout */}
       {node.hasChildren && (
         <g
-          transform={`translate(${w - 14}, ${h / 2})`}
+          transform={`translate(${w / 2}, ${h + 1})`}
           onClick={(e) => { e.stopPropagation(); onToggle(node.id) }}
           style={{ cursor: 'pointer' }}
         >
-          <circle r={9} fill="white" stroke={accent + '55'} strokeWidth={1} />
+          <circle r={10} fill="white" stroke={accent + '88'} strokeWidth={1.5} />
           <text
             textAnchor="middle" dominantBaseline="central"
-            fontSize={13} fontWeight={700} fill={accent}
+            fontSize={14} fontWeight={700} fill={accent}
           >
             {node.isCollapsed ? '+' : '−'}
           </text>
@@ -527,8 +528,8 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
       </g>
 
       {/* Zoom hint */}
-      <text x={vw - 12} y={vh - 10} textAnchor="end" fontSize={10} fill="#cbd5e1">
-        scroll to zoom · drag to pan · click card to expand
+      <text x={vw / 2} y={vh - 10} textAnchor="middle" fontSize={10} fill="#cbd5e1">
+        pinch to zoom · drag to pan · tap card to expand
       </text>
     </svg>
   )
