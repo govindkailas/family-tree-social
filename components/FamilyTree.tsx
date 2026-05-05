@@ -36,9 +36,8 @@ export default function FamilyTree({
   // null = follow device; set explicitly when user clicks toggle
   const [userView, setUserView] = useState<View | null>(null)
 
-  // Derived active view: user override > device default
-  // While isMobile is null (SSR / first frame) default to list
-  const autoView: View = isMobile === null ? 'list' : isMobile ? 'list' : 'canvas'
+  // Always default to canvas tree view on all devices
+  const autoView: View = 'canvas'
   const activeView: View = userView ?? autoView
 
   // Empty state (shared between both views)

@@ -341,8 +341,10 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
   const [tx, setTx] = useState(60)
   const [ty, setTy] = useState(0)
   const [scale, setScale] = useState(1)
-  const isPanning = useRef(false)
-  const lastPan   = useRef({ x: 0, y: 0 })
+
+  // ── Mouse pan / zoom ──────────────────────────────────────────────────────
+  const isPanning   = useRef(false)
+  const lastPan     = useRef({ x: 0, y: 0 })
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
@@ -363,6 +365,44 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
   }, [])
 
   const stopPan = useCallback(() => { isPanning.current = false }, [])
+
+  // ── Touch pan / pinch-zoom ────────────────────────────────────────────────
+  const lastTouch     = useRef<{ x: number; y: number } | null>(null)
+  const lastPinchDist = useRef<number | null>(null)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      lastTouch.current     = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      lastPinchDist.current = null
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX
+      const dy = e.touches[0].clientY - e.touches[1].clientY
+      lastPinchDist.current = Math.hypot(dx, dy)
+      lastTouch.current     = null
+    }
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault()
+    if (e.touches.length === 1 && lastTouch.current) {
+      const dx = e.touches[0].clientX - lastTouch.current.x
+      const dy = e.touches[0].clientY - lastTouch.current.y
+      setTx(v => v + dx)
+      setTy(v => v + dy)
+      lastTouch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    } else if (e.touches.length === 2 && lastPinchDist.current !== null) {
+      const dx   = e.touches[0].clientX - e.touches[1].clientX
+      const dy   = e.touches[0].clientY - e.touches[1].clientY
+      const dist = Math.hypot(dx, dy)
+      setScale(s => Math.min(2, Math.max(0.2, s * (dist / lastPinchDist.current!))))
+      lastPinchDist.current = dist
+    }
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    lastTouch.current     = null
+    lastPinchDist.current = null
+  }, [])
 
   // Tree data
   const { personMap, roots } = useMemo(
@@ -397,18 +437,35 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
     return { positioned, edges, nodeMap }
   }, [roots, personMap, collapsed])
 
-  // Center on first render
+  // Fit the whole visible tree to the viewport on first render
   const initialised = useRef(false)
   useEffect(() => {
-    if (initialised.current || positioned.length === 0 || vw === 0) return
+    if (initialised.current || positioned.length === 0 || vw === 0 || vh === 0) return
     initialised.current = true
-    // Find the root node (first in roots list) and center the view on it
-    const rootNode = positioned.find(n => n.id === roots[0]?.personId)
-    if (rootNode) {
-      setTx(60)
-      setTy(vh / 2 - (rootNode.y + rootNode.h / 2) * scale)
-    }
-  }, [positioned, vw, vh, roots, scale])
+
+    const allX = positioned.flatMap(n => [n.x, n.x + n.w])
+    const allY = positioned.flatMap(n => [n.y, n.y + n.h])
+    const minX = Math.min(...allX)
+    const maxX = Math.max(...allX)
+    const minY = Math.min(...allY)
+    const maxY = Math.max(...allY)
+    const treeW = maxX - minX
+    const treeH = maxY - minY
+
+    const padding  = 48
+    const scaleX   = (vw - padding * 2) / treeW
+    const scaleY   = (vh - padding * 2) / treeH
+    // Fit to viewport but never zoom in beyond 1×
+    const newScale = Math.min(scaleX, scaleY, 1)
+
+    // Center the tree
+    const newTx = (vw  - treeW * newScale) / 2 - minX * newScale
+    const newTy = (vh  - treeH * newScale) / 2 - minY * newScale
+
+    setScale(newScale)
+    setTx(newTx)
+    setTy(newTy)
+  }, [positioned, vw, vh])
 
   if (people.length === 0) {
     return (
@@ -430,12 +487,15 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
     <svg
       ref={svgRef}
       width={vw} height={vh}
-      style={{ background: '#f8fafc', cursor: isPanning.current ? 'grabbing' : 'grab', display: 'block' }}
+      style={{ background: '#f8fafc', cursor: isPanning.current ? 'grabbing' : 'grab', display: 'block', touchAction: 'none' }}
       onWheel={onWheel}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={stopPan}
       onMouseLeave={stopPan}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       <g transform={`translate(${tx},${ty}) scale(${scale})`}>
         {/* Edges — drawn behind nodes */}
