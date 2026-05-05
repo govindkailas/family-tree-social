@@ -32,32 +32,60 @@ function fullName(p: Person) {
 }
 
 /**
- * Given the current user's linked personId, derive the IDs of their close
- * relatives: parents, spouses, siblings (via shared parents), and children.
+ * Derive sets of relative IDs by group for a given personId.
+ * - close:    parents, spouses, siblings, children
+ * - extended: grandparents, grandchildren, aunts/uncles, cousins, spouses-of-children
  */
-function getRelativeIds(
+function buildRelativeGroups(
   personId: string,
   relationships: Relationship[]
-): Set<string> {
-  const ids = new Set<string>()
+): { close: Set<string>; extended: Set<string> } {
+  const close    = new Set<string>()
+  const extended = new Set<string>()
 
-  const parents   = relationships.filter((r) => r.type === 'parent_child' && r.to_person_id === personId).map((r) => r.from_person_id)
-  const children  = relationships.filter((r) => r.type === 'parent_child' && r.from_person_id === personId).map((r) => r.to_person_id)
-  const spouses   = relationships.filter((r) => r.type === 'spouse' && (r.from_person_id === personId || r.to_person_id === personId))
-    .map((r) => r.from_person_id === personId ? r.to_person_id : r.from_person_id)
+  const parentsOf    = (id: string) => relationships.filter(r => r.type === 'parent_child' && r.to_person_id   === id).map(r => r.from_person_id)
+  const childrenOf   = (id: string) => relationships.filter(r => r.type === 'parent_child' && r.from_person_id === id).map(r => r.to_person_id)
+  const spousesOf    = (id: string) => relationships.filter(r => r.type === 'spouse' && (r.from_person_id === id || r.to_person_id === id)).map(r => r.from_person_id === id ? r.to_person_id : r.from_person_id)
 
-  parents.forEach((id)  => ids.add(id))
-  children.forEach((id) => ids.add(id))
-  spouses.forEach((id)  => ids.add(id))
+  const parents  = parentsOf(personId)
+  const children = childrenOf(personId)
+  const spouses  = spousesOf(personId)
 
+  // Close family
+  parents.forEach(id  => close.add(id))
+  children.forEach(id => close.add(id))
+  spouses.forEach(id  => close.add(id))
   // Siblings = other children of the same parents
-  for (const parentId of parents) {
-    relationships
-      .filter((r) => r.type === 'parent_child' && r.from_person_id === parentId && r.to_person_id !== personId)
-      .forEach((r) => ids.add(r.to_person_id))
+  for (const pid of parents) {
+    childrenOf(pid).filter(id => id !== personId).forEach(id => close.add(id))
   }
 
-  return ids
+  // Extended family (excluding anyone already in close)
+  const addExtended = (id: string) => { if (!close.has(id) && id !== personId) extended.add(id) }
+
+  // Grandparents
+  for (const pid of parents) parentsOf(pid).forEach(addExtended)
+  // Grandchildren
+  for (const cid of children) childrenOf(cid).forEach(addExtended)
+  // Spouses of children
+  for (const cid of children) spousesOf(cid).forEach(addExtended)
+  // Aunts / uncles = siblings of parents
+  for (const pid of parents) {
+    const grandparents = parentsOf(pid)
+    for (const gpid of grandparents) {
+      childrenOf(gpid).filter(id => id !== pid).forEach(addExtended)
+    }
+  }
+  // Cousins = children of aunts/uncles
+  for (const pid of parents) {
+    const grandparents = parentsOf(pid)
+    for (const gpid of grandparents) {
+      const auntsUncles = childrenOf(gpid).filter(id => id !== pid)
+      for (const auId of auntsUncles) childrenOf(auId).forEach(addExtended)
+    }
+  }
+
+  return { close, extended }
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -82,6 +110,8 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
   // Recipient state
   const [allRecipients, setAllRecipients]   = useState<Recipient[]>([])
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
+  const [closeIds,   setCloseIds]   = useState<Set<string>>(new Set())
+  const [extendedIds, setExtendedIds] = useState<Set<string>>(new Set())
   const [loading,    setLoading]   = useState(true)
   const [sending,    setSending]   = useState(false)
   const [error,      setError]     = useState<string | null>(null)
@@ -111,12 +141,15 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
 
       setAllRecipients(recipients)
 
-      // Find current user's person and compute default selection
+      // Find current user's person and compute relationship groups
       const myPerson = people.find((p) => p.linked_user_id === userId)
       if (myPerson && rels) {
-        const relativeIds = getRelativeIds(myPerson.id, rels as Relationship[])
+        const { close, extended } = buildRelativeGroups(myPerson.id, rels as Relationship[])
+        setCloseIds(close)
+        setExtendedIds(extended)
+        // Default: select close family
         const defaultSelected = new Set(
-          recipients.filter((r) => relativeIds.has(r.personId)).map((r) => r.email)
+          recipients.filter((r) => close.has(r.personId)).map((r) => r.email)
         )
         setSelectedEmails(defaultSelected)
       } else {
@@ -145,6 +178,32 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
     } else {
       setSelectedEmails(new Set(allRecipients.map((r) => r.email)))
     }
+  }
+
+  /** Quick-select a named group of recipients */
+  function selectGroup(group: 'close' | 'extended' | 'all') {
+    if (group === 'close') {
+      setSelectedEmails(new Set(allRecipients.filter(r => closeIds.has(r.personId)).map(r => r.email)))
+    } else if (group === 'extended') {
+      // Extended includes close + extended relatives
+      const both = new Set([...closeIds, ...extendedIds])
+      setSelectedEmails(new Set(allRecipients.filter(r => both.has(r.personId)).map(r => r.email)))
+    } else {
+      setSelectedEmails(new Set(allRecipients.map(r => r.email)))
+    }
+  }
+
+  /** Which group chip is currently active (best-effort) */
+  function activeGroup(): 'close' | 'extended' | 'all' | null {
+    const both = new Set([...closeIds, ...extendedIds])
+    const closeEmails    = new Set(allRecipients.filter(r => closeIds.has(r.personId)).map(r => r.email))
+    const extendedEmails = new Set(allRecipients.filter(r => both.has(r.personId)).map(r => r.email))
+    const allEmails      = new Set(allRecipients.map(r => r.email))
+    const setsEqual = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every(v => b.has(v))
+    if (setsEqual(selectedEmails, allEmails))      return 'all'
+    if (setsEqual(selectedEmails, extendedEmails)) return 'extended'
+    if (setsEqual(selectedEmails, closeEmails))    return 'close'
+    return null
   }
 
   async function handleSend() {
@@ -206,8 +265,8 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Send Family Invite</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Invite members to an event via email</p>
+          <h2 className="text-base font-semibold text-gray-900">Send Event Invite</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Email family members about an upcoming event</p>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors">
           <X size={18} />
@@ -283,16 +342,37 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
 
         {/* Recipients */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
-              Recipients
-            </label>
-            {allRecipients.length > 1 && (
-              <button onClick={toggleAll} className="text-[11px] text-amber-600 hover:underline">
-                {selectedEmails.size === allRecipients.length ? 'Deselect all' : 'Select all'}
-              </button>
-            )}
-          </div>
+          <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            Recipients
+          </label>
+
+          {/* Quick-select group chips */}
+          {!loading && allRecipients.length > 0 && (() => {
+            const active = activeGroup()
+            const chipCls = (g: typeof active) =>
+              `px-3 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer ${
+                active === g
+                  ? 'bg-amber-500 border-amber-500 text-white'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-amber-400 hover:text-amber-600'
+              }`
+            const closeCount    = allRecipients.filter(r => closeIds.has(r.personId)).length
+            const extCount      = allRecipients.filter(r => closeIds.has(r.personId) || extendedIds.has(r.personId)).length
+            return (
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button className={chipCls('close')}    onClick={() => selectGroup('close')}>
+                  Close family {closeCount > 0 && `(${closeCount})`}
+                </button>
+                {extCount > closeCount && (
+                  <button className={chipCls('extended')} onClick={() => selectGroup('extended')}>
+                    Extended family {`(${extCount})`}
+                  </button>
+                )}
+                <button className={chipCls('all')}      onClick={() => selectGroup('all')}>
+                  All members ({allRecipients.length})
+                </button>
+              </div>
+            )
+          })()}
 
           {loading ? (
             <div className="flex items-center justify-center py-6 text-gray-400">
@@ -335,7 +415,7 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
           )}
           {!loading && allRecipients.length > 0 && (
             <p className="text-[11px] text-gray-400 mt-1.5">
-              {selectedEmails.size} of {allRecipients.length} selected · Parents, siblings &amp; children pre-selected
+              {selectedEmails.size} of {allRecipients.length} selected
             </p>
           )}
         </div>
@@ -356,7 +436,7 @@ export default function SendInviteModal({ familyId, userId, onClose }: Props) {
           {sending ? (
             <><Loader2 size={14} className="animate-spin" /> Sending…</>
           ) : (
-            <><Send size={14} /> Send invite</>
+            <><Send size={14} /> Send event invite</>
           )}
         </button>
       </div>

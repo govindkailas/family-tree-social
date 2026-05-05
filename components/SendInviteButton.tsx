@@ -18,7 +18,7 @@ export default function SendInviteButton({ familyId, userId }: Props) {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
       >
         <Mail size={14} />
-        Send Invite
+        Event Invite
       </button>
 
       {open && (
