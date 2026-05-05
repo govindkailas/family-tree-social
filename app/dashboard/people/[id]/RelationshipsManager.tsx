@@ -260,7 +260,7 @@ export default function RelationshipsManager({
           {/* Section header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-800">{label}</h3>
-            {adding !== key && (isOwner || (canEdit && key === 'child')) && (
+            {adding !== key && (isOwner || (canEdit && (key === 'child' || key === 'spouse'))) && (
               <button
                 onClick={() => { setAdding(key); setMode('search') }}
                 className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-800 transition-colors"
