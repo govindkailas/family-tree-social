@@ -83,56 +83,13 @@ export default async function MembersPage() {
 
   const familyId = myMembership.family_id
 
-  // Fetch all members via security-definer RPC (bypasses RLS self-reference issue)
-  const { data: members } = await supabase
-    .rpc('get_family_members', { fid: familyId })
+  // Fetch all members via security-definer RPC — joins auth.users + people for name/email
+  type MemberRow = { user_id: string; role: string; email: string; display_name: string }
+  const { data: members } = await supabase.rpc('get_family_members', { fid: familyId })
+  const rows = (members ?? []) as MemberRow[]
 
-  // For each member, look up their people record by user_id or join_requests email
-  type MemberRow = {
-    user_id: string
-    role: string
-    displayName: string
-    email: string | null
-  }
-
-  type RpcMember = { user_id: string; role: string }
-
-  const enriched: MemberRow[] = await Promise.all(
-    ((members ?? []) as RpcMember[]).map(async (m) => {
-      // Try to find linked people record
-      const { data: person } = await supabase
-        .from('people')
-        .select('first_name, last_name, email')
-        .eq('family_id', familyId)
-        .eq('user_id', m.user_id)
-        .single()
-
-      if (person) {
-        return {
-          ...m,
-          displayName: `${person.first_name}${person.last_name ? ' ' + person.last_name : ''}`,
-          email: person.email ?? null,
-        }
-      }
-
-      // Fall back to join_requests email
-      const { data: req } = await supabase
-        .from('join_requests')
-        .select('email')
-        .eq('user_id', m.user_id)
-        .eq('family_id', familyId)
-        .single()
-
-      return {
-        ...m,
-        displayName: req?.email ?? 'Unknown member',
-        email: req?.email ?? null,
-      }
-    })
-  )
-
-  const owners  = enriched.filter(m => m.role === 'owner')
-  const regular = enriched.filter(m => m.role !== 'owner')
+  const owners  = rows.filter(m => m.role === 'owner')
+  const regular = rows.filter(m => m.role !== 'owner')
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -150,8 +107,8 @@ export default async function MembersPage() {
           {owners.map(m => (
             <li key={m.user_id} className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-900">{m.displayName}</p>
-                {m.email && m.email !== m.displayName && (
+                <p className="text-sm font-medium text-gray-900">{m.display_name}</p>
+                {m.email && m.email !== m.display_name && (
                   <p className="text-xs text-gray-400 mt-0.5">{m.email}</p>
                 )}
               </div>
@@ -195,8 +152,8 @@ export default async function MembersPage() {
             {regular.map(m => (
               <li key={m.user_id} className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{m.displayName}</p>
-                  {m.email && m.email !== m.displayName && (
+                  <p className="text-sm font-medium text-gray-900">{m.display_name}</p>
+                  {m.email && m.email !== m.display_name && (
                     <p className="text-xs text-gray-400 mt-0.5">{m.email}</p>
                   )}
                 </div>
