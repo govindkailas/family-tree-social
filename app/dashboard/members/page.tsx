@@ -95,8 +95,10 @@ export default async function MembersPage() {
     email: string | null
   }
 
+  type RpcMember = { user_id: string; role: string }
+
   const enriched: MemberRow[] = await Promise.all(
-    (members ?? []).map(async (m) => {
+    ((members ?? []) as RpcMember[]).map(async (m) => {
       // Try to find linked people record
       const { data: person } = await supabase
         .from('people')
