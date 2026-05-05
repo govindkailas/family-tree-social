@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import PeopleSearch from '@/components/PeopleSearch'
 import SendInviteButton from '@/components/SendInviteButton'
+import MobileNav from '@/components/MobileNav'
 import Link from 'next/link'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </div>
           </Link>
           {familyName && (
-            <nav className="flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-1">
               <Link
                 href="/dashboard/people/new"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
@@ -84,14 +85,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </nav>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {membership?.family_id && <PeopleSearch familyId={membership.family_id} />}
-          <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+          <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-200">
             <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-medium">
               {user?.email?.[0]?.toUpperCase()}
             </div>
             <span className="text-sm text-gray-500 hidden sm:block">{user?.email}</span>
           </div>
+          {familyName && (
+            <MobileNav
+              isOwner={isOwner}
+              pendingCount={pendingCount}
+              familyId={familyId}
+              userId={user?.id ?? null}
+            />
+          )}
         </div>
       </header>
       <main className="flex-1 overflow-auto">{children}</main>
