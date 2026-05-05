@@ -91,7 +91,6 @@ export default async function MembersPage() {
   type MemberRow = {
     user_id: string
     role: string
-    created_at: string
     displayName: string
     email: string | null
   }
