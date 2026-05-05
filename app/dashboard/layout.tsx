@@ -58,17 +58,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 Invite
               </Link>
               {isOwner && (
-                <Link
-                  href="/dashboard/pending"
-                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                >
-                  Requests
-                  {pendingCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                      {pendingCount}
-                    </span>
-                  )}
-                </Link>
+                <>
+                  <Link
+                    href="/dashboard/members"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  >
+                    Members
+                  </Link>
+                  <Link
+                    href="/dashboard/pending"
+                    className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  >
+                    Requests
+                    {pendingCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </Link>
+                </>
               )}
               {familyId && user && (
                 <SendInviteButton familyId={familyId} userId={user.id} />
