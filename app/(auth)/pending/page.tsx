@@ -44,7 +44,7 @@ export default async function PendingPage() {
         .limit(1)
         .single()
 
-      const parent = parentRel?.from_person as { first_name: string; last_name?: string | null } | null
+      const parent = parentRel?.from_person as unknown as { first_name: string; last_name?: string | null } | null
       treeContext = {
         personName: `${person.first_name}${person.last_name ? ' ' + person.last_name : ''}`,
         parentName: parent ? `${parent.first_name}${parent.last_name ? ' ' + parent.last_name : ''}` : null,

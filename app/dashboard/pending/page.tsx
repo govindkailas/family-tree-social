@@ -103,7 +103,7 @@ export default async function PendingRequestsPage() {
         .limit(1)
         .single()
 
-      const parent = (parentRel?.from_person as { first_name: string; last_name?: string | null } | null)
+      const parent = (parentRel?.from_person as unknown as { first_name: string; last_name?: string | null } | null)
       const parentName = parent ? `${parent.first_name}${parent.last_name ? ' ' + parent.last_name : ''}` : null
       return { ...req, parentName }
     })
