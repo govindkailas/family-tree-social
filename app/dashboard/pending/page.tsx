@@ -19,9 +19,11 @@ async function approveRequest(formData: FormData) {
 
   // Add to family_members
   const { error: insertErr } = await supabase.from('family_members').insert({
-    user_id:   userId,
-    family_id: familyId,
-    role:      'member',
+    user_id:      userId,
+    family_id:    familyId,
+    role:         'member',
+    approved:     true,
+    approved_at:  new Date().toISOString(),
   })
 
   if (insertErr) {

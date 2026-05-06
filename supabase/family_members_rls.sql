@@ -29,3 +29,8 @@ create policy "owners can update member roles"
 create policy "owners can delete family members"
   on family_members for delete
   using (is_family_owner(family_id));
+
+-- Every member can read their own row (needed for dashboard membership check)
+create policy "members can read their own membership"
+  on family_members for select
+  using (user_id = auth.uid());

@@ -114,6 +114,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             initials={initials}
             accent={accent}
             lightBg={lightBg}
+            canEdit={canEdit}
           />
           <div>
             <h1 className="text-2xl font-bold text-gray-900 leading-tight">

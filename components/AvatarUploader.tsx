@@ -12,6 +12,7 @@ interface Props {
   initials: string
   accent: string
   lightBg: string
+  canEdit?: boolean
 }
 
 // ── crop constants ────────────────────────────────────────────────────────────
@@ -257,6 +258,7 @@ export default function AvatarUploader({
   initials,
   accent,
   lightBg,
+  canEdit = false,
 }: Props) {
   const supabase     = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -381,59 +383,65 @@ export default function AvatarUploader({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPending}
-            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            title="Upload photo"
-          >
-            <CameraIcon />
-          </button>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-
-        <div className="flex flex-wrap gap-2 justify-center">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPending}
-            className="text-[11px] text-blue-500 hover:underline disabled:opacity-50"
-          >
-            {showImage && hasUploadedPhoto ? 'Replace photo' : 'Upload photo'}
-          </button>
-
-          {hasSocialPhoto && !hasUploadedPhoto && (
+          {canEdit && (
             <button
               type="button"
-              onClick={handleUseSocial}
+              onClick={() => fileInputRef.current?.click()}
               disabled={isPending}
-              className="text-[11px] text-indigo-500 hover:underline disabled:opacity-50"
+              className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              title="Upload photo"
             >
-              Use social profile photo
-            </button>
-          )}
-
-          {showImage && (
-            <button
-              type="button"
-              onClick={handleRemove}
-              disabled={isPending}
-              className="text-[11px] text-rose-400 hover:underline disabled:opacity-50"
-            >
-              Remove photo
+              <CameraIcon />
             </button>
           )}
         </div>
 
-        {status && <p className="text-[11px] text-gray-400">{status}</p>}
+        {canEdit && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            <div className="flex flex-wrap gap-2 justify-center">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isPending}
+                className="text-[11px] text-blue-500 hover:underline disabled:opacity-50"
+              >
+                {showImage && hasUploadedPhoto ? 'Replace photo' : 'Upload photo'}
+              </button>
+
+              {hasSocialPhoto && !hasUploadedPhoto && (
+                <button
+                  type="button"
+                  onClick={handleUseSocial}
+                  disabled={isPending}
+                  className="text-[11px] text-indigo-500 hover:underline disabled:opacity-50"
+                >
+                  Use social profile photo
+                </button>
+              )}
+
+              {showImage && (
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  disabled={isPending}
+                  className="text-[11px] text-rose-400 hover:underline disabled:opacity-50"
+                >
+                  Remove photo
+                </button>
+              )}
+            </div>
+
+            {status && <p className="text-[11px] text-gray-400">{status}</p>}
+          </>
+        )}
       </div>
     </>
   )
