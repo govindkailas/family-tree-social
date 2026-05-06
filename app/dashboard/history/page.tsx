@@ -51,11 +51,13 @@ export default async function HistoryPage() {
   const isOwner = role === 'owner'
 
   // ── Event invites ──────────────────────────────────────────────────────────
-  const { data: events } = await supabase
+  const { data: events, error: eventsError } = await supabase
     .from('events')
     .select('id, title, event_date, location, created_at, sent_by')
     .eq('family_id', familyId)
     .order('created_at', { ascending: false })
+
+  if (eventsError) console.error('[history] events query error:', eventsError.message)
 
   // Recipient counts per event
   const eventIds = (events ?? []).map(e => e.id)
@@ -72,7 +74,6 @@ export default async function HistoryPage() {
   }
 
   // ── Join requests ──────────────────────────────────────────────────────────
-  // Owners see all; members see only their own request
   const joinQuery = supabase
     .from('join_requests')
     .select('id, email, status, created_at, reviewed_at')
@@ -82,6 +83,28 @@ export default async function HistoryPage() {
   const { data: joinRequests } = isOwner
     ? await joinQuery
     : await joinQuery.eq('user_id', user.id)
+
+  // ── Family invites (explicit invites sent by owners) ───────────────────────
+  const { data: familyInvites } = isOwner
+    ? await supabase
+        .from('family_invites')
+        .select('id, invited_email, created_at')
+        .eq('family_id', familyId)
+        .order('created_at', { ascending: false })
+    : { data: [] }
+
+  // Check which invited emails have since joined
+  const invitedEmails = (familyInvites ?? []).map(i => i.invited_email)
+  const { data: approvedRequests } = invitedEmails.length > 0
+    ? await supabase
+        .from('join_requests')
+        .select('email')
+        .eq('family_id', familyId)
+        .eq('status', 'approved')
+        .in('email', invitedEmails)
+    : { data: [] }
+
+  const joinedEmails = new Set((approvedRequests ?? []).map(r => r.email))
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-12">
@@ -132,6 +155,50 @@ export default async function HistoryPage() {
           </ul>
         )}
       </section>
+
+      {/* ── Family Invites ─────────────────────────────────────────────────── */}
+      {isOwner && (
+        <section>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-xl font-bold text-gray-900">Family Invites Sent</h1>
+            <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              {(familyInvites ?? []).length}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            Emails sent inviting people to join the family tree.
+          </p>
+
+          {(familyInvites ?? []).length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 px-6 py-10 text-center text-gray-400">
+              <p className="text-3xl mb-2">✉️</p>
+              <p className="text-sm">No invites sent yet.</p>
+              <p className="text-xs mt-1">Use <strong>Invite</strong> in the menu to invite someone.</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {(familyInvites ?? []).map(inv => {
+                const joined = joinedEmails.has(inv.invited_email)
+                return (
+                  <li key={inv.id} className="bg-white rounded-xl border border-gray-200 px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{inv.invited_email}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Invited {timeAgo(inv.created_at)}</p>
+                    </div>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${
+                      joined
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-50 text-amber-600 border border-amber-200'
+                    }`}>
+                      {joined ? 'Joined ✓' : 'Pending'}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       {/* ── Join Requests ──────────────────────────────────────────────────── */}
       <section>
