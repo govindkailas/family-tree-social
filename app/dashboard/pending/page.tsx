@@ -3,6 +3,65 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+// ── Email helper ────────────────────────────────────────────────────────────
+
+function buildApprovalEmail({
+  recipientEmail,
+  personName,
+  familyName,
+  appUrl,
+}: {
+  recipientEmail: string
+  personName: string | null
+  familyName: string
+  appUrl: string
+}) {
+  const greeting = personName ? `Hi ${personName},` : 'Great news!'
+  const subject  = `You're in! Welcome to the ${familyName} Family Tree 🌳`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr><td style="background:#10b981;height:6px;"></td></tr>
+        <tr><td style="padding:36px 40px 24px;text-align:center;">
+          <p style="margin:0 0 12px;font-size:40px;">🌳</p>
+          <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">You've been approved!</h1>
+          <p style="margin:0;font-size:15px;color:#6b7280;">
+            ${greeting} Your request to join the <strong style="color:#374151;">${familyName} Family Tree</strong> has been approved.
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:#f3f4f6;"></div></td></tr>
+        <tr><td style="padding:28px 40px;text-align:center;">
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
+            You can now explore the family tree, view family members, and update your own profile.
+          </p>
+          <a href="${appUrl}/dashboard" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;">
+            Open Family Tree →
+          </a>
+        </td></tr>
+        <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">
+            Sign in with <strong>${recipientEmail}</strong><br/>
+            ${appUrl}
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  return { subject, html }
+}
 
 // ── Server Actions ──────────────────────────────────────────────────────────
 
@@ -28,17 +87,24 @@ async function approveRequest(formData: FormData) {
 
   if (insertErr) {
     console.error('[approveRequest] family_members insert failed:', insertErr.message)
-    // Still mark as approved so we don't block the UI — but log the failure
+    // Still continue so we don't block the UI — but log the failure
   }
 
   // Link their people record to this auth user (match by email)
+  let personName: string | null = null
   if (email) {
-    await supabase
+    const { data: linked } = await supabase
       .from('people')
       .update({ user_id: userId })
       .eq('family_id', familyId)
       .eq('email', email)
       .is('user_id', null) // don't overwrite an existing link
+      .select('first_name, last_name')
+      .maybeSingle()
+
+    if (linked) {
+      personName = `${linked.first_name}${linked.last_name ? ' ' + linked.last_name : ''}`
+    }
   }
 
   // Mark request approved
@@ -46,6 +112,26 @@ async function approveRequest(formData: FormData) {
     .from('join_requests')
     .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user.id })
     .eq('id', requestId)
+
+  // Send approval email
+  try {
+    const { data: family } = await supabase
+      .from('families')
+      .select('name')
+      .eq('id', familyId)
+      .single()
+
+    const familyName = family?.name ?? 'Kailathuvalappil'
+    const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://kailas.family'
+    const from       = process.env.RESEND_FROM_EMAIL   ?? 'Family Tree <onboarding@resend.dev>'
+
+    const { subject, html } = buildApprovalEmail({ recipientEmail: email, personName, familyName, appUrl })
+
+    const { error: sendErr } = await resend.emails.send({ from, to: [email], subject, html })
+    if (sendErr) console.error('[approveRequest] Email send failed:', sendErr.message)
+  } catch (err) {
+    console.error('[approveRequest] Email error:', err)
+  }
 
   revalidatePath('/dashboard/pending')
 }
