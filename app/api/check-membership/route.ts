@@ -20,26 +20,23 @@ export async function POST() {
     return NextResponse.json({ isMember: true })
   }
 
-  // Not a member yet — find the family and create a join request
-  const { data: family } = await supabase
-    .from('families')
-    .select('id')
-    .limit(1)
-    .single()
+  // Not a member yet — find the family via security-definer RPC (bypasses RLS
+  // so non-members can still look up the family ID to create a join request)
+  const { data: familyId } = await supabase.rpc('get_default_family_id')
 
-  if (family) {
+  if (familyId) {
     const { data: existing } = await supabase
       .from('join_requests')
       .select('id')
       .eq('user_id', user.id)
-      .eq('family_id', family.id)
-      .single()
+      .eq('family_id', familyId)
+      .maybeSingle()
 
     if (!existing) {
       await supabase.from('join_requests').insert({
         user_id:   user.id,
         email:     user.email ?? '',
-        family_id: family.id,
+        family_id: familyId,
         status:    'pending',
       })
     }

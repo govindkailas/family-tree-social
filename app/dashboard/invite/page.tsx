@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import InviteForm from './InviteForm'
 
 function timeAgo(dt: string) {
@@ -44,19 +45,21 @@ export default async function InvitePage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
-  // Cross-reference: which emails have since joined as family members?
-  // We check join_requests with status=approved
+  // Cross-reference invite emails against join_requests to show status
   const invitedEmails = (invites ?? []).map(i => i.invited_email)
-  const { data: approvedRequests } = invitedEmails.length > 0
+  const { data: joinRequests } = invitedEmails.length > 0
     ? await supabase
         .from('join_requests')
-        .select('email')
+        .select('email, status, id')
         .eq('family_id', familyId)
-        .eq('status', 'approved')
         .in('email', invitedEmails)
     : { data: [] }
 
-  const joinedEmails = new Set((approvedRequests ?? []).map(r => r.email))
+  // Map email → join request info
+  type JoinReqInfo = { status: string; id: string }
+  const joinRequestMap = new Map<string, JoinReqInfo>(
+    (joinRequests ?? []).map(r => [r.email, { status: r.status, id: r.id }])
+  )
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
@@ -76,23 +79,39 @@ export default async function InvitePage() {
           </h2>
           <ul className="space-y-2">
             {(invites ?? []).map(inv => {
-              const joined = joinedEmails.has(inv.invited_email)
+              const jr = joinRequestMap.get(inv.invited_email)
+              const status = jr?.status ?? null
+
               return (
                 <li
                   key={inv.id}
-                  className="bg-white rounded-xl border border-gray-200 px-5 py-3.5 flex items-center justify-between gap-4"
+                  className="bg-white rounded-xl border border-gray-200 px-5 py-3.5 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{inv.invited_email}</p>
                     <p className="text-xs text-gray-400 mt-0.5">Invited {timeAgo(inv.created_at)}</p>
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${
-                    joined
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-amber-50 text-amber-600 border border-amber-200'
-                  }`}>
-                    {joined ? 'Joined ✓' : 'Pending'}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {status === 'pending' && (
+                      <Link
+                        href="/dashboard/pending"
+                        className="text-xs font-medium px-3 py-1 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors"
+                      >
+                        Approve →
+                      </Link>
+                    )}
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                      status === 'approved' ? 'bg-green-100 text-green-700' :
+                      status === 'pending'  ? 'bg-amber-100 text-amber-700' :
+                      status === 'rejected' ? 'bg-red-100 text-red-600' :
+                                             'bg-gray-100 text-gray-500'
+                    }`}>
+                      {status === 'approved' ? 'Joined ✓' :
+                       status === 'pending'  ? 'Awaiting approval' :
+                       status === 'rejected' ? 'Rejected' :
+                                              'Invite sent'}
+                    </span>
+                  </div>
                 </li>
               )
             })}
