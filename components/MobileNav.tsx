@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, UserPlus, Users, ClipboardList, TreePine, CalendarDays, History } from 'lucide-react'
+import { Menu, X, UserPlus, Users, ClipboardList, TreePine, CalendarDays, History, User } from 'lucide-react'
 import SendInviteModal from './SendInviteModal'
 
 type Props = {
@@ -10,9 +10,10 @@ type Props = {
   pendingCount: number
   familyId:     string | null
   userId:       string | null
+  myPersonId:   string | null
 }
 
-export default function MobileNav({ isOwner, pendingCount, familyId, userId }: Props) {
+export default function MobileNav({ isOwner, pendingCount, familyId, userId, myPersonId }: Props) {
   const [open, setOpen]           = useState(false)
   const [eventOpen, setEventOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -44,6 +45,22 @@ export default function MobileNav({ isOwner, pendingCount, familyId, userId }: P
 
         {open && (
           <div className="absolute right-0 top-11 w-56 bg-white rounded-xl border border-gray-200 shadow-lg py-2 z-50">
+
+            {/* My Profile — only shown when the user has a linked people record */}
+            {myPersonId && (
+              <>
+                <Link
+                  href={`/dashboard/people/${myPersonId}`}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+                >
+                  <User size={15} className="text-gray-500" />
+                  My Profile
+                </Link>
+                <div className="my-1.5 border-t border-gray-100" />
+              </>
+            )}
+
             <Link
               href="/dashboard/people/new"
               onClick={() => setOpen(false)}

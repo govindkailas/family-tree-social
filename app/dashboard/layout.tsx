@@ -31,6 +31,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
     pendingCount = count ?? 0
   }
 
+  // Look up the current user's own people record (linked by user_id)
+  let myPersonId: string | null = null
+  if (user && familyId) {
+    const { data: myPerson } = await supabase
+      .from('people')
+      .select('id')
+      .eq('family_id', familyId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    myPersonId = myPerson?.id ?? null
+  }
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-0 flex items-center justify-between h-14 shrink-0">
@@ -94,10 +106,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="flex items-center gap-2">
           {membership?.family_id && <PeopleSearch familyId={membership.family_id} />}
           <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-200">
-            <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-medium">
-              {user?.email?.[0]?.toUpperCase()}
-            </div>
-            <span className="text-sm text-gray-500 hidden sm:block">{user?.email}</span>
+            {myPersonId ? (
+              <Link
+                href={`/dashboard/people/${myPersonId}`}
+                className="flex items-center gap-2 rounded-lg hover:bg-gray-100 px-2 py-1 transition-colors group"
+                title="My Profile"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-medium group-hover:bg-gray-700 transition-colors">
+                  {user?.email?.[0]?.toUpperCase()}
+                </div>
+                <span className="text-sm text-gray-500 hidden sm:block group-hover:text-gray-700 transition-colors">My Profile</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-medium">
+                  {user?.email?.[0]?.toUpperCase()}
+                </div>
+                <span className="text-sm text-gray-500 hidden sm:block">{user?.email}</span>
+              </div>
+            )}
           </div>
           {familyName && (
             <MobileNav
@@ -105,6 +132,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               pendingCount={pendingCount}
               familyId={familyId}
               userId={user?.id ?? null}
+              myPersonId={myPersonId}
             />
           )}
         </div>
