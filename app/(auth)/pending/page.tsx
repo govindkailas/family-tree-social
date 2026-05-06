@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CheckApproval from './CheckApproval'
+import ProfileSetupForm from './ProfileSetupForm'
 
 export default async function PendingPage() {
   const supabase = await createServerClient()
@@ -53,6 +54,17 @@ export default async function PendingPage() {
     }
   }
 
+  // If no tree record yet, fetch the people list for the parent picker.
+  // Uses a security-definer RPC so non-members can read the family.
+  type PickerPerson = { id: string; first_name: string; last_name: string }
+  let pickerPeople: PickerPerson[] = []
+  if (!treeContext && !isRejected && request?.family_id) {
+    const { data: people } = await supabase.rpc('get_family_people_for_picker', {
+      p_family_id: request.family_id,
+    })
+    pickerPeople = (people ?? []) as PickerPerson[]
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
       <div className="flex flex-col items-center mb-10 text-center">
@@ -78,23 +90,33 @@ export default async function PendingPage() {
             <p className="font-semibold text-gray-900">Request pending approval</p>
 
             {treeContext ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 space-y-1">
-                <p>You&apos;ve been added to the family tree as <strong>{treeContext.personName}</strong>.</p>
-                {treeContext.parentName && (
-                  <p className="text-xs text-amber-600">Under <strong>{treeContext.parentName}</strong></p>
-                )}
-              </div>
+              /* Already linked to a tree record — just wait for approval */
+              <>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 space-y-1">
+                  <p>You&apos;ve been added to the family tree as <strong>{treeContext.personName}</strong>.</p>
+                  {treeContext.parentName && (
+                    <p className="text-xs text-amber-600">Under <strong>{treeContext.parentName}</strong></p>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">
+                  You&apos;ll be redirected automatically once an admin approves your request.
+                </p>
+                <p className="text-xs text-gray-400 pt-1">{user.email}</p>
+                <CheckApproval />
+              </>
             ) : (
-              <p className="text-sm text-gray-500">
-                Your request to join the family tree has been sent to the admin.
-              </p>
+              /* Not yet in the tree — show profile setup form */
+              <>
+                <ProfileSetupForm people={pickerPeople} />
+                <div className="pt-2 border-t border-gray-100 space-y-2">
+                  <p className="text-sm text-gray-500">
+                    You&apos;ll be redirected automatically once an admin approves your request.
+                  </p>
+                  <p className="text-xs text-gray-400">{user.email}</p>
+                  <CheckApproval />
+                </div>
+              </>
             )}
-
-            <p className="text-sm text-gray-500">
-              You&apos;ll be redirected automatically once an admin approves your request.
-            </p>
-            <p className="text-xs text-gray-400 pt-1">{user.email}</p>
-            <CheckApproval />
           </>
         )}
       </div>
