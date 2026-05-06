@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import CheckApproval from './CheckApproval'
 
 export default async function PendingPage() {
   const supabase = await createServerClient()
@@ -90,9 +91,10 @@ export default async function PendingPage() {
             )}
 
             <p className="text-sm text-gray-500">
-              You&apos;ll receive access once an admin approves your request.
+              You&apos;ll be redirected automatically once an admin approves your request.
             </p>
             <p className="text-xs text-gray-400 pt-1">{user.email}</p>
+            <CheckApproval />
           </>
         )}
       </div>

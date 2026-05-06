@@ -18,11 +18,16 @@ async function approveRequest(formData: FormData) {
   if (!user) return
 
   // Add to family_members
-  await supabase.from('family_members').insert({
+  const { error: insertErr } = await supabase.from('family_members').insert({
     user_id:   userId,
     family_id: familyId,
     role:      'member',
   })
+
+  if (insertErr) {
+    console.error('[approveRequest] family_members insert failed:', insertErr.message)
+    // Still mark as approved so we don't block the UI — but log the failure
+  }
 
   // Link their people record to this auth user (match by email)
   if (email) {
