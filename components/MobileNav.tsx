@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, UserPlus, Users, ClipboardList, TreePine, CalendarDays } from 'lucide-react'
+import { Menu, X, UserPlus, Users, ClipboardList, TreePine, CalendarDays, History } from 'lucide-react'
 import SendInviteModal from './SendInviteModal'
 
 type Props = {
@@ -71,6 +71,15 @@ export default function MobileNav({ isOwner, pendingCount, familyId, userId }: P
                 Event Invite
               </button>
             )}
+
+            <Link
+              href="/dashboard/history"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <History size={15} className="text-gray-400" />
+              History
+            </Link>
 
             {isOwner && (
               <>
