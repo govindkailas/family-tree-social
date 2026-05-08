@@ -38,15 +38,20 @@ function LocationPicker({ value, onChange }: { value: string; onChange: (v: stri
         )
         const data = await res.json()
         const results: string[] = data.map((r: any) => {
-          const a     = r.address
-          const parts = [
-            a.city || a.town || a.village || a.municipality || a.county,
+          const a = r.address
+          // Build four tiers: locality → district/city → state → country
+          // Each tier falls back through progressively coarser Nominatim fields
+          const raw = [
+            a.neighbourhood || a.hamlet || a.village || a.suburb || a.quarter,
+            a.town || a.city_district || a.county || a.municipality || a.city,
             a.state,
             a.country,
-          ].filter(Boolean)
+          ].filter(Boolean) as string[]
+          // Deduplicate adjacent identical values (e.g. county = city = "Thrissur")
+          const parts = raw.filter((v, i) => i === 0 || v !== raw[i - 1])
           return parts.length >= 2
             ? parts.join(', ')
-            : r.display_name.split(',').slice(0, 3).join(',').trim()
+            : r.display_name.split(',').slice(0, 4).join(',').trim()
         })
         setSuggestions([...new Set(results)] as string[])
         setOpen(true)
