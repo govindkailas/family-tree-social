@@ -130,6 +130,21 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                 {[birthLabel, deathLabel].filter(Boolean).join(' · ')}
               </p>
             )}
+            {/* Location + phone */}
+            {((person as any).location || (person as any).phone) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5">
+                {(person as any).location && (
+                  <p className="text-sm text-gray-500 flex items-center gap-1">
+                    <span>📍</span>{(person as any).location}
+                  </p>
+                )}
+                {(person as any).phone && (
+                  <p className="text-sm text-gray-500 flex items-center gap-1">
+                    <span>📞</span>{(person as any).phone}
+                  </p>
+                )}
+              </div>
+            )}
             {person.bio && (
               <p className="text-sm text-gray-600 mt-2 leading-relaxed">{person.bio}</p>
             )}
@@ -144,6 +159,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                 birth_date: person.birth_date ?? null,
                 death_date: person.death_date ?? null,
                 bio:        person.bio        ?? null,
+                location:   (person as any).location ?? null,
+                phone:      (person as any).phone    ?? null,
               }}
             />
           </div>

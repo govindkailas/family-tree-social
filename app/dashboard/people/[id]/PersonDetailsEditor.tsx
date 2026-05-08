@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Props {
@@ -7,21 +7,94 @@ interface Props {
   canEdit?: boolean
   initialData: {
     first_name: string
-    last_name: string | null
-    nick_name: string | null
-    email: string | null
+    last_name:  string | null
+    nick_name:  string | null
+    email:      string | null
     birth_date: string | null
     death_date: string | null
-    bio: string | null
+    bio:        string | null
+    location:   string | null
+    phone:      string | null
   }
 }
+
+// ── Location autocomplete (OpenStreetMap Nominatim — free, no API key) ────────
+
+function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [open, setOpen]               = useState(false)
+  const debounceRef                   = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleInput(v: string) {
+    onChange(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (v.trim().length < 2) { setSuggestions([]); setOpen(false); return }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v)}&format=json&limit=5&addressdetails=1`,
+          { headers: { 'Accept-Language': 'en' } }
+        )
+        const data = await res.json()
+        const results: string[] = data.map((r: any) => {
+          const a     = r.address
+          const parts = [
+            a.city || a.town || a.village || a.municipality || a.county,
+            a.state,
+            a.country,
+          ].filter(Boolean)
+          return parts.length >= 2
+            ? parts.join(', ')
+            : r.display_name.split(',').slice(0, 3).join(',').trim()
+        })
+        setSuggestions([...new Set(results)] as string[])
+        setOpen(true)
+      } catch { /* silently ignore network errors */ }
+    }, 350)
+  }
+
+  function select(s: string) {
+    onChange(s)
+    setSuggestions([])
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={e => handleInput(e.target.value)}
+        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="e.g. Mumbai, Maharashtra, India"
+        className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden text-sm">
+          {suggestions.map((s, i) => (
+            <li
+              key={i}
+              onMouseDown={() => select(s)}
+              className="px-3 py-2 hover:bg-amber-50 cursor-pointer text-gray-700 truncate"
+            >
+              📍 {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ── PersonDetailsEditor ───────────────────────────────────────────────────────
 
 export default function PersonDetailsEditor({ personId, canEdit = false, initialData }: Props) {
   const supabase = createClient()
 
   const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState<string | null>(null)
 
   const [form, setForm] = useState({
     first_name: initialData.first_name ?? '',
@@ -31,10 +104,12 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
     birth_date: initialData.birth_date ?? '',
     death_date: initialData.death_date ?? '',
     bio:        initialData.bio        ?? '',
+    location:   initialData.location   ?? '',
+    phone:      initialData.phone      ?? '',
   })
 
   function set(field: keyof typeof form, value: string) {
-    setForm((f) => ({ ...f, [field]: value }))
+    setForm(f => ({ ...f, [field]: value }))
   }
 
   async function handleSave() {
@@ -52,14 +127,13 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
         birth_date: form.birth_date        || null,
         death_date: form.death_date        || null,
         bio:        form.bio.trim()        || null,
+        location:   form.location.trim()   || null,
+        phone:      form.phone.trim()      || null,
       })
       .eq('id', personId)
 
     setSaving(false)
-
     if (dbErr) { setError(dbErr.message); return }
-
-    // Reload so the server-rendered header reflects the new name / dates
     window.location.reload()
   }
 
@@ -72,6 +146,8 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
       birth_date: initialData.birth_date ?? '',
       death_date: initialData.death_date ?? '',
       bio:        initialData.bio        ?? '',
+      location:   initialData.location   ?? '',
+      phone:      initialData.phone      ?? '',
     })
     setError(null)
     setEditing(false)
@@ -99,7 +175,7 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
           </label>
           <input
             value={form.first_name}
-            onChange={(e) => set('first_name', e.target.value)}
+            onChange={e => set('first_name', e.target.value)}
             className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
           />
         </div>
@@ -109,7 +185,7 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
           </label>
           <input
             value={form.last_name}
-            onChange={(e) => set('last_name', e.target.value)}
+            onChange={e => set('last_name', e.target.value)}
             className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
           />
         </div>
@@ -122,7 +198,7 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
         </label>
         <input
           value={form.nick_name}
-          onChange={(e) => set('nick_name', e.target.value)}
+          onChange={e => set('nick_name', e.target.value)}
           placeholder="e.g. Remy"
           className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
         />
@@ -136,10 +212,32 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
         <input
           type="email"
           value={form.email}
-          onChange={(e) => set('email', e.target.value)}
+          onChange={e => set('email', e.target.value)}
           placeholder="jane@example.com"
           className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
         />
+      </div>
+
+      {/* Phone */}
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+          Phone number
+        </label>
+        <input
+          type="tel"
+          value={form.phone}
+          onChange={e => set('phone', e.target.value)}
+          placeholder="e.g. +91 98765 43210"
+          className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
+        />
+      </div>
+
+      {/* Location */}
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+          Current location
+        </label>
+        <LocationPicker value={form.location} onChange={v => set('location', v)} />
       </div>
 
       {/* Dates */}
@@ -151,7 +249,7 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
           <input
             type="date"
             value={form.birth_date}
-            onChange={(e) => set('birth_date', e.target.value)}
+            onChange={e => set('birth_date', e.target.value)}
             className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
           />
         </div>
@@ -162,7 +260,7 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
           <input
             type="date"
             value={form.death_date}
-            onChange={(e) => set('death_date', e.target.value)}
+            onChange={e => set('death_date', e.target.value)}
             className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition"
           />
         </div>
@@ -175,7 +273,7 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
         </label>
         <textarea
           value={form.bio}
-          onChange={(e) => set('bio', e.target.value)}
+          onChange={e => set('bio', e.target.value)}
           rows={3}
           placeholder="A few words about this person…"
           className="w-full border border-gray-200 bg-gray-50 focus:bg-white px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-amber-400 transition resize-none"
@@ -184,7 +282,6 @@ export default function PersonDetailsEditor({ personId, canEdit = false, initial
 
       {error && <p className="text-xs text-rose-500">{error}</p>}
 
-      {/* Actions */}
       <div className="flex gap-2 pt-1">
         <button
           onClick={handleSave}
