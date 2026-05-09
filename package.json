@@ -34,7 +34,7 @@
     "autoprefixer": "^10.4.0",
     "eslint": "^10.3.0",
     "eslint-config-next": "^16.2.6",
-    "jest": "^30.3.0",
+    "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.4.0",
     "tailwindcss": "^4.2.4",
