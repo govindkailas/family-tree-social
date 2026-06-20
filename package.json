@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.108.1",
+    "@supabase/supabase-js": "^2.108.2",
     "dagre": "^0.8.5",
     "lucide-react": "^1.18.0",
     "next": "^16.2.9",
