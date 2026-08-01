@@ -33,7 +33,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "autoprefixer": "^10.5.4",
     "eslint": "^10.8.0",
-    "eslint-config-next": "^16.2.11",
+    "eslint-config-next": "^16.2.12",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.5.24",
