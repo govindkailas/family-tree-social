@@ -29,7 +29,7 @@
     "@types/dagre": "^0.7.52",
     "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "@tailwindcss/postcss": "^4.3.3",
     "autoprefixer": "^10.5.5",
     "eslint": "^10.10.0",
