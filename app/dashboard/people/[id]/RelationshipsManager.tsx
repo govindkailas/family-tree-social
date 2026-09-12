@@ -286,7 +286,7 @@ export default function RelationshipsManager({
                 >
                   {fullName(person)}
                   {person.nick_name && (
-                    <span className="text-gray-400 ml-1.5 text-xs">"{person.nick_name}"</span>
+                    <span className="text-gray-400 ml-1.5 text-xs">&quot;{person.nick_name}&quot;</span>
                   )}
                 </Link>
                 <button
@@ -366,7 +366,7 @@ export default function RelationshipsManager({
                             <span>
                               {fullName(p)}
                               {p.nick_name && (
-                                <span className="text-gray-400 ml-1.5 text-xs">"{p.nick_name}"</span>
+                                <span className="text-gray-400 ml-1.5 text-xs">&quot;{p.nick_name}&quot;</span>
                               )}
                             </span>
                             <span className="text-[10px] text-gray-300 group-hover/item:text-amber-500 transition-colors">

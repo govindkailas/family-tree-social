@@ -60,7 +60,7 @@ export default function InviteForm({ familyId }: { familyId: string }) {
 
       {success && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-          ✓ Invite sent! They'll receive an email with a link to join.
+          ✓ Invite sent! They&apos;ll receive an email with a link to join.
         </p>
       )}
 

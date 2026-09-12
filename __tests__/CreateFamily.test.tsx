@@ -17,7 +17,7 @@ const mockSupabase = {
   auth: {
     getUser: jest.fn()
   },
-  from: jest.fn(() => ({
+  from: jest.fn((): any => ({
     insert: jest.fn(() => ({
       select: jest.fn(() => ({
         single: jest.fn()

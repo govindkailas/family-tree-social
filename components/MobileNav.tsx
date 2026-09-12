@@ -20,7 +20,11 @@ export default function MobileNav({ isOwner, pendingCount, familyId, userId, myP
   const pathname = usePathname()
 
   // Close menu on route change
-  useEffect(() => { setOpen(false) }, [pathname])
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
+    setOpen(false)
+  }
 
   // Close menu when clicking outside
   useEffect(() => {

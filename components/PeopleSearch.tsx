@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, X } from 'lucide-react'
 import Link from 'next/link'
@@ -9,10 +9,10 @@ export default function PeopleSearch({ familyId }: { familyId: string }) {
   const [results,  setResults]  = useState<any[]>([])
   const [expanded, setExpanded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return }
+    if (query.length < 2) return
     const timer = setTimeout(async () => {
       const { data } = await supabase
         .from('people')
@@ -23,7 +23,9 @@ export default function PeopleSearch({ familyId }: { familyId: string }) {
       setResults(data ?? [])
     }, 200)
     return () => clearTimeout(timer)
-  }, [query, familyId])
+  }, [query, familyId, supabase])
+
+  const visibleResults = query.length < 2 ? [] : results
 
   function open() {
     setExpanded(true)
@@ -92,9 +94,9 @@ export default function PeopleSearch({ familyId }: { familyId: string }) {
       )}
 
       {/* Results dropdown */}
-      {results.length > 0 && (
+      {visibleResults.length > 0 && (
         <ul className="absolute top-full mt-1 right-0 bg-white border border-gray-200 shadow-lg rounded-xl w-56 z-50 overflow-hidden">
-          {results.map((p) => (
+          {visibleResults.map((p) => (
             <li key={p.id} className="hover:bg-gray-50">
               <Link
                 href={`/dashboard/people/${p.id}`}
