@@ -64,7 +64,7 @@ function CropModal({
   const lastTouch    = useRef({ x: 0, y: 0 })
   // stable refs so event handlers don't go stale
   const csRef = useRef(cs)
-  csRef.current = cs
+  useEffect(() => { csRef.current = cs }, [cs])
 
   // ── non-passive wheel + touchmove (must be DOM listeners, not React synthetic) ──
   useEffect(() => {

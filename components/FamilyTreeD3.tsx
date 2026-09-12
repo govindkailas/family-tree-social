@@ -345,6 +345,7 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
   // ── Mouse pan / zoom ──────────────────────────────────────────────────────
   const isPanning   = useRef(false)
   const lastPan     = useRef({ x: 0, y: 0 })
+  const [isPanningState, setIsPanningState] = useState(false)
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
@@ -354,6 +355,7 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as Element).closest('a')) return
     isPanning.current = true
+    setIsPanningState(true)
     lastPan.current = { x: e.clientX, y: e.clientY }
   }, [])
 
@@ -364,7 +366,10 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
     lastPan.current = { x: e.clientX, y: e.clientY }
   }, [])
 
-  const stopPan = useCallback(() => { isPanning.current = false }, [])
+  const stopPan = useCallback(() => {
+    isPanning.current = false
+    setIsPanningState(false)
+  }, [])
 
   // ── Touch pan / pinch-zoom ────────────────────────────────────────────────
   const lastTouch     = useRef<{ x: number; y: number } | null>(null)
@@ -487,7 +492,7 @@ export default function FamilyTreeD3({ people, relationships }: { people: any[];
     <svg
       ref={svgRef}
       width={vw} height={vh}
-      style={{ background: '#f8fafc', cursor: isPanning.current ? 'grabbing' : 'grab', display: 'block', touchAction: 'none' }}
+      style={{ background: '#f8fafc', cursor: isPanningState ? 'grabbing' : 'grab', display: 'block', touchAction: 'none' }}
       onWheel={onWheel}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}

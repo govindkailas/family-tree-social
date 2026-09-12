@@ -34,14 +34,14 @@ describe('PeopleSearch', () => {
   it('renders search input', () => {
     render(<PeopleSearch familyId={mockFamilyId} />)
 
-    const input = screen.getByPlaceholderText('Search name or nickname...')
+    const input = screen.getByPlaceholderText('Search…')
     expect(input).toBeInTheDocument()
   })
 
   it('does not search with less than 2 characters', async () => {
     render(<PeopleSearch familyId={mockFamilyId} />)
 
-    const input = screen.getByPlaceholderText('Search name or nickname...')
+    const input = screen.getByPlaceholderText('Search…')
     await userEvent.type(input, 'J')
 
     // Wait for debounce
@@ -53,7 +53,7 @@ describe('PeopleSearch', () => {
   it('searches with 2 or more characters', async () => {
     render(<PeopleSearch familyId={mockFamilyId} />)
 
-    const input = screen.getByPlaceholderText('Search name or nickname...')
+    const input = screen.getByPlaceholderText('Search…')
     await userEvent.type(input, 'Jo')
 
     // Wait for debounce and API call
@@ -65,7 +65,7 @@ describe('PeopleSearch', () => {
   it('displays search results', async () => {
     render(<PeopleSearch familyId={mockFamilyId} />)
 
-    const input = screen.getByPlaceholderText('Search name or nickname...')
+    const input = screen.getByPlaceholderText('Search…')
     await userEvent.type(input, 'John')
 
     await waitFor(() => {
@@ -77,7 +77,7 @@ describe('PeopleSearch', () => {
   it('links to person detail pages', async () => {
     render(<PeopleSearch familyId={mockFamilyId} />)
 
-    const input = screen.getByPlaceholderText('Search name or nickname...')
+    const input = screen.getByPlaceholderText('Search…')
     await userEvent.type(input, 'John')
 
     await waitFor(() => {
@@ -90,7 +90,7 @@ describe('PeopleSearch', () => {
   it('clears results when query is cleared', async () => {
     render(<PeopleSearch familyId={mockFamilyId} />)
 
-    const input = screen.getByPlaceholderText('Search name or nickname...')
+    const input = screen.getByPlaceholderText('Search…')
     await userEvent.type(input, 'John')
 
     await waitFor(() => {

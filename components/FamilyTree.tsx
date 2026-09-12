@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { LayoutList, Network } from 'lucide-react'
 import FamilyTreeList from './FamilyTreeList'
 import FamilyTreeD3 from './FamilyTreeD3'
@@ -8,17 +8,15 @@ import FamilyTreeD3 from './FamilyTreeD3'
 
 /** Returns true on mobile widths, null during SSR / first paint. */
 function useIsMobile(breakpoint = 768): boolean | null {
-  const [isMobile, setIsMobile] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
-    setIsMobile(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [breakpoint])
-
-  return isMobile
+  return useSyncExternalStore<boolean | null>(
+    (onChange) => {
+      const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+      mq.addEventListener('change', onChange)
+      return () => mq.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches,
+    () => null,
+  )
 }
 
 // ── FamilyTree (wrapper) ───────────────────────────────────────────────────

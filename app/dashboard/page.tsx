@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-lg">
-          You aren't part of any family yet. Ask the family owner to invite you.
+          You aren&apos;t part of any family yet. Ask the family owner to invite you.
         </p>
       </div>
     )
