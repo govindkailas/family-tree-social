@@ -30,7 +30,7 @@
     "@types/dagre": "^0.7.52",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.6",
-    "@types/react": "^19.2.18",
+    "@types/react": "^19.3.1",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.6.2",
     "eslint": "^10.15.0",
